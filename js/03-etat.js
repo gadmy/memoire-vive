@@ -30,6 +30,14 @@ function vivants() {
    reparateur est dans la salle sans en tenir un poste. */
 function affectesA(id) {
     return vivants().filter(function (c) {
+        return !c.auto && c.poste.type === "travail" && c.poste.id === id;
+    });
+}
+
+/* Ceux A QUI la salle appartient, absents compris. C'est ce qu'il faut
+   afficher : un dormeur n'a pas perdu son poste, il n'y est juste pas. */
+function titulairesDe(id) {
+    return vivants().filter(function (c) {
         return c.poste.type === "travail" && c.poste.id === id;
     });
 }
@@ -37,7 +45,7 @@ function affectesA(id) {
 /* Qui, dans cette salle, y fait tel ordre. */
 function aLaSalle(id, type) {
     return vivants().filter(function (c) {
-        return c.poste.type === type && c.poste.id === id;
+        return !c.auto && c.poste.type === type && c.poste.id === id;
     });
 }
 
@@ -101,6 +109,8 @@ function nouvellePartie(graine) {
             passive: !!def.passive,
             integrite: def.verrouille ? 100 : rndInt(82, 100),
             salete: 0,         /* 0 a 100 : une salle sale rend moins */
+            enReel: 0,         /* l'energie reellement demandee, au prorata des postes tenus */
+            part: 0,           /* la part de postes tenus, de 0 a 1 */
             active: false,     /* alimentee et en marche, calcule a chaque pas */
             rendement: 0,      /* entre 0 et postes */
             coupee: false      /* eteinte faute d'energie */

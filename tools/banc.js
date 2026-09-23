@@ -37,25 +37,25 @@ const path = require("path");
       const pireSale = () => V.salles.filter(s => !s.verrouille)
           .sort((a, b) => b.salete - a.salete)[0];
 
-      /* qui dort : au-dessus de 78 on va au lit, et on y reste jusqu'a 20.
-         JAMAIS PLUS D'UN A LA FOIS : c'est la faute qui vidait les machines
-         quand les quatre s'epuisaient ensemble. */
-      const dort = eq.filter(c => c.fatigue > 78 || (c.poste.type === "repos" && c.fatigue > 20))
-                     .sort((a, b) => b.fatigue - a.fatigue)
-                     .slice(0, Math.max(1, Math.round(eq.length / 3)));
-      const dortIds = new Set(dort.map(c => c.id));
-      const dispo = eq.filter(c => !dortIds.has(c.id));
+      /* LE REPOS N'EST PLUS L'AFFAIRE DU JOUEUR : les clones vont dormir et
+         manger tout seuls, puis reprennent leur poste. Le pilote ne s'en
+         occupe donc plus du tout - il ne touche qu'aux absents de longue
+         duree, c'est-a-dire a personne. */
+      const dispo = eq.filter(c => !c.auto);
 
-      /* on vide tout, puis on remplit dans l'ordre du plus vital */
-      for (const c of eq) affecter(c.id, "libre", null);
-      for (const c of dort) affecter(c.id, "repos", null);
+      /* on vide tout, puis on remplit dans l'ordre du plus vital.
+         Attention : un ordre donne annule l'absence en cours, donc on ne
+         touche jamais a quelqu'un qui dort. */
+      for (const c of dispo) affecter(c.id, "libre", null);
 
       /* L'ORDRE DES POSTES, DICTE PAR LE BESOIN DU MOMENT - c'est ce
          qu'un joueur attentif fait en regardant ses jauges. Respirer,
          puis fermer le cycle des dechets, puis etre plus nombreux, puis
          seulement avancer. */
       const cap = CFG.CAP;
-      const veutCuve = (V.decantation || V.res.mat >= CFG.NAISSANCE_MAT) && eq.length < 11;
+      /* on arrete de faire des enfants a huit : au-dela, les bras servent
+         mieux au moteur qu'a la cuve */
+      const veutCuve = (V.decantation || V.res.mat >= CFG.NAISSANCE_MAT) && eq.length < 8;
       const abimee = V.salles.some(s => !s.verrouille && s.integrite < 70);
       const urgent = V.salles.some(s => !s.verrouille && s.integrite < 40);
       const sale = V.res.dechets > cap.dechets * 0.20 || V.res.mat < 220
@@ -68,8 +68,11 @@ const path = require("path");
          machines, il n'y a plus de partie */
       if (urgent) postes.push({ t: "entretien", comp: "mecanique" });
       postes.push({ t: "salle", id: "ferme", comp: "botanique" });
+      /* LE MENAGE EST DEVENU LA SOURCE DES MATERIAUX : la crasse ne descend
+         dans la cuve que si quelqu'un l'y porte, et c'est de la cuve que le
+         recyclage tire l'eau et la matiere. On nettoie donc tot. */
       const crasse = pireSale();
-      if (crasse && crasse.salete > 80) {
+      if (crasse && crasse.salete > 45) {
         postes.push({ t: "nettoyage", comp: "chimie", id: crasse.id });
       }
       if (sale) postes.push({ t: "salle", id: "recyclage", comp: "chimie" });
@@ -77,10 +80,10 @@ const path = require("path");
       if (veutCuve) postes.push({ t: "salle", id: "naissance", comp: "medecine" });
       if (abimee) postes.push({ t: "entretien", comp: "mecanique" });
 
-      postes.push({ t: "salle", id: "machines", comp: "mecanique" });
-      postes.push({ t: "salle", id: "recyclage", comp: "chimie" });
       postes.push({ t: "salle", id: "controle", comp: "commandement" });
       postes.push({ t: "salle", id: "moteur", comp: "mecanique" });
+      postes.push({ t: "salle", id: "machines", comp: "mecanique" });
+      postes.push({ t: "salle", id: "recyclage", comp: "chimie" });
       postes.push({ t: "salle", id: "ferme", comp: "botanique" });
       postes.push({ t: "entretien", comp: "mecanique" });
 

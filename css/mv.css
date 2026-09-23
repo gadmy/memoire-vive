@@ -332,3 +332,11 @@ body{
 .bulle.mal::after{border-color:var(--mal);}
 .bulle.bien{border-color:var(--attn);color:var(--attn);}
 .bulle.bien::after{border-color:var(--attn);}
+
+/* ---------- l'avancement d'un chantier ---------- */
+.prog{
+    position:relative;height:5px;margin-top:4px;
+    background:var(--panel2);border:1px solid var(--line);
+}
+.prog i{position:absolute;inset:0 auto 0 0;background:var(--ink);}
+.poste.absent{opacity:.5;border-style:dotted;}

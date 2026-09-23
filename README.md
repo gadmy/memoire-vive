@@ -34,6 +34,16 @@ que chacun vaut dans cette salle-là.
 - **Les machines produisent toute l'énergie**, tout le reste en consomme. Quand
   l'offre ne suffit plus, les salles tombent par ordre de priorité — le moteur
   d'abord, la ferme en dernier. La salle de vie ne se coupe jamais.
+- **Ils se débrouillent seuls.** Un clone épuisé quitte son poste pour la
+  salle de vie et y revient une fois reposé ; un affamé va manger puis
+  retourne travailler. Son poste lui reste **réservé** — le plan écrit
+  `1(2)/2` pour dire « un présent, un au lit ». Quatre places seulement.
+- **Une salle à moitié tenue tourne à moitié**, elle ne s'arrête pas — et elle
+  ne tire que la moitié du courant.
+- **Les déchets naissent où sont les gens**, salle par salle. Rien ne descend
+  dans la cuve tout seul : il faut envoyer quelqu'un **nettoyer**. Et c'est de
+  cette cuve que le recyclage tire l'eau et la matière — le balai est la source
+  des matériaux.
 - **Les salles s'usent**, et se salissent. Sous 12 % d'intégrité elles ne
   redémarrent plus ; au-delà de 40 de saleté elles rendent jusqu'à 30 % de
   moins. Mais **une salle où quelqu'un travaille s'entretient d'elle-même** :
@@ -47,6 +57,12 @@ que chacun vaut dans cette salle-là.
 - **La cuve** : 80 matériaux, 10 jours, un poste tenu. La seule façon d'être plus
   nombreux — et les matériaux ne viennent que du recyclage.
 - **Deux fins** : le premier relais atteint, ou l'extinction.
+
+**Chaque salle dit ce qu'elle fait**, en une ligne sous son nom : un débit
+pour ce qui ne finit jamais (`+13 en/j`), ou l'avancement d'un chantier qui
+aura une fin — une cuve, une réparation, un ménage — avec ce qu'il reste à
+tenir. Le temps est compté **en jours**, pas en minutes : une minute réelle ne
+veut rien dire quand on passe de ×1 à ×16 quand on veut.
 
 **Le vaisseau respire, et ça se voit.** Chaque fois qu'une salle produit, un
 trait lumineux part d'elle, longe la coursive et va se jeter dans la jauge
@@ -78,6 +94,9 @@ point pour ouvrir sa fiche ; glisser un point pour lui donner un ordre.
 | `js/06-panneaux.js` | 316 | les cartes, les jauges, l'équipage, le journal |
 | `js/07-boucle.js` | 160 | le menu, la boucle à pas fixe, les deux fins |
 | `js/08-effets.js` | 300 | les traits lumineux, les chiffres qui popent, les bulles |
+
+Tout se compte **en jours de jeu**, déplacements compris : la simulation ne
+dépend pas de la vitesse d'affichage.
 
 Des `<script src>` classiques, pas des modules ES : portée globale partagée, et
 le jeu s'ouvre sans serveur. L'ordre des balises dans `index.html` **est**

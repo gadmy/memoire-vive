@@ -14,17 +14,93 @@ var CORR_Y = 165;   /* la coursive centrale du plan */
 
 /* ---- OU SE TIENT UN CLONE ---- */
 function salleDuPoste(c) {
+    /* une absence volontaire l'emporte sur l'ordre recu : il est a la
+       salle de vie, meme si son poste reste le sien */
+    if (c.auto) return salleParId("vie");
     var p = c.poste;
     if (p.type === "repos") return salleParId("vie");
     if (p.type === "libre") return null;
     return salleParId(p.id);
 }
 
+/* Est-il arrive, ou marche-t-il encore ? */
+function arriveDans(c, id) {
+    var s = salleParId(id);
+    if (!s) return false;
+    return c.x >= s.x && c.x <= s.x + s.w && c.y >= s.y && c.y <= s.y + s.h;
+}
+
+/* ================= ILS SE DEBROUILLENT SEULS =================
+   Personne n'a besoin qu'on lui dise d'aller dormir. Un clone epuise quitte
+   son poste, va a la salle de vie, et le reprend une fois repose - le poste
+   qu'on lui avait donne lui est RENDU, jamais perdu. Meme chose pour la
+   faim. Deux garde-fous : il n'y a que CFG.LITS places, et on ne s'absente
+   pas d'un poste qu'on vient de recevoir sans avoir rien fait. */
+/* IL REVIENT. Si on a donne sa place a quelqu'un d'autre pendant qu'il
+   dormait, il ne la reprend pas de force : il redevient libre, et le journal
+   le dit, pour qu'on ne cherche pas pourquoi une salle s'est videe. */
+function reprendrePoste(c) {
+    var r = c.retour, s;
+    c.retour = null;
+    c.auto = null;
+    if (r) {
+        s = salleParId(r.id);
+        if (r.type === "travail" && s && affectesA(r.id).length >= s.postes) {
+            c.poste = { type: "libre", id: null };
+            logMsg(c.nomComplet + " revient : sa place a " + s.nom + " est prise.", "");
+        } else {
+            c.poste = r;
+        }
+    }
+    placerAuPoste(c, false);
+}
+
+function gererAbsences(dj) {
+    var i, c, occupees = 0;
+    var vie = salleParId("vie");
+
+    for (i = 0; i < V.clones.length; i++) {
+        c = V.clones[i];
+        if (c.vivant && (c.auto || c.poste.type === "repos")) occupees++;
+    }
+
+    for (i = 0; i < V.clones.length; i++) {
+        c = V.clones[i];
+        if (!c.vivant) continue;
+
+        /* --- il rentre --- */
+        if ((c.auto === "repos" && c.fatigue <= CFG.FATIGUE_REPRISE)
+         || (c.auto === "repas" && c.faim <= CFG.FAIM_RASSASIE)) {
+            reprendrePoste(c);
+            occupees--;
+            continue;
+        }
+        if (c.auto) continue;
+
+        /* --- il s'absente --- */
+        if (c.poste.type === "repos" || c.poste.type === "libre") continue;
+        if (!vie.active) continue;
+        if (occupees >= CFG.LITS) continue;
+
+        if (c.fatigue >= CFG.FATIGUE_AUTO) {
+            c.retour = { type: c.poste.type, id: c.poste.id };
+            c.auto = "repos";
+            occupees++;
+            placerAuPoste(c, false);
+        } else if (c.faim >= CFG.FAIM_AUTO && V.res.vivres >= CFG.VIVRES_REPAS) {
+            c.retour = { type: c.poste.type, id: c.poste.id };
+            c.auto = "repas";
+            occupees++;
+            placerAuPoste(c, false);
+        }
+    }
+}
+
 function placerAuPoste(c, immediat) {
     var s = salleDuPoste(c), tx, ty;
     if (s) {
-        tx = s.x + 22 + rnd() * (s.w - 44);
-        ty = s.y + 24 + rnd() * (s.h - 48);
+        tx = s.x + 20 + rnd() * (s.w - 40);
+        ty = s.y + 26 + rnd() * (s.h - 50);
     } else {
         /* libre : quelque part dans la coursive */
         tx = 60 + rnd() * 440;
@@ -36,20 +112,50 @@ function placerAuPoste(c, immediat) {
     c.chemin = [{ x: c.x, y: CORR_Y }, { x: tx, y: CORR_Y }, { x: tx, y: ty }];
 }
 
-function marcher(c, dt) {
+/* ================= ILS TRAVAILLENT, ET CA SE VOIT =================
+   Arrive a son poste, un clone ne se fige pas : il fait quelques pas dans sa
+   salle, s'arrete, reprend. Les pauses sont ses gestes de travail - c'est
+   pendant celles-la que le point pulse a l'ecran. Un oisif erre plus loin et
+   plus lentement, un dormeur ne bouge presque pas : on lit ce que fait
+   l'equipage sans ouvrir une seule fiche. */
+function marcher(c, dj) {
     if (!c.vivant) return;
+
     if (!c.chemin.length) {
-        c.pause -= dt;
-        if (c.pause <= 0) { placerAuPoste(c, false); c.pause = 2 + rnd() * 6; }
+        c.pause -= dj;
+        if (c.pause <= 0) {
+            var s = salleDuPoste(c);
+            if (s) {
+                /* un pas court, a l'interieur de sa salle */
+                var tx = clamp(c.x + (rnd() - 0.5) * s.w * 0.55, s.x + 16, s.x + s.w - 16);
+                var ty = clamp(c.y + (rnd() - 0.5) * s.h * 0.55, s.y + 24, s.y + s.h - 18);
+                c.chemin = [{ x: tx, y: ty }];
+            } else {
+                placerAuPoste(c, false);
+            }
+            c.pause = (c.auto === "repos") ? CFG.PAUSE_REPOS * (0.6 + rnd())
+                    : (c.poste.type === "libre") ? CFG.PAUSE_OISIF * (0.6 + rnd())
+                    : CFG.PAUSE_TRAVAIL * (0.6 + rnd());
+        }
         return;
     }
+
     var t = c.chemin[0], dx = t.x - c.x, dy = t.y - c.y;
     var d = Math.sqrt(dx * dx + dy * dy);
     if (d < 1.5) { c.x = t.x; c.y = t.y; c.chemin.shift(); return; }
-    var vit = 42 * dt;   /* unites de plan par seconde */
+    /* on traverse le vaisseau vite, on s'affaire lentement - et tout cela
+       se compte en jours, donc l'accelere ne change rien a la simulation */
+    var vit = (c.chemin.length > 1 ? CFG.MARCHE : CFG.AFFAIRE) * dj;
     if (vit > d) vit = d;
     c.x += dx / d * vit;
     c.y += dy / d * vit;
+}
+
+/* Est-il en train de s'affairer a l'instant ? Sert au rendu. */
+function sAffaire(c) {
+    if (!c.vivant || c.auto || c.chemin.length) return false;
+    var t = c.poste.type;
+    return t !== "libre" && t !== "repos";
 }
 
 /* ---- LE GRAND LIVRE DU PAS ----
@@ -129,9 +235,11 @@ function simPas(dtSec) {
         if (s.postes === 0) {
             s.veut = true;
             s.rendement = 1;
+            s.part = 1;
         } else {
             var eq = affectesA(s.id);
-            if (!eq.length) { s.veut = false; continue; }
+            s.part = eq.length / s.postes;
+            if (!eq.length) { s.veut = false; s.part = 0; continue; }
             var r = 0;
             for (n = 0; n < eq.length; n++) r += rendementClone(eq[n], s.comp);
             /* UNE SALLE SALE REND MOINS, mais pas tout de suite : les
@@ -156,15 +264,25 @@ function simPas(dtSec) {
     var machines = salleParId("machines");
     var produite = (machines.veut ? machines.rendement * RECETTES.machines.rend.energie : 0);
 
-    var candidates = V.salles.filter(function (x) { return x.veut && x.en > 0; });
+    /* L'ENERGIE SE PAIE AU PRORATA DES POSTES TENUS. Une ferme a 1 poste sur
+       2 tourne a la moitie de son regime : elle ne doit donc pas tirer le
+       courant d'une ferme entiere. Sans cela, sous-staffer une salle coutait
+       le prix fort pour un demi-resultat, et le joueur n'avait pas le choix
+       d'y mettre une seule personne. */
+    for (i = 0; i < V.salles.length; i++) {
+        s = V.salles[i];
+        s.enReel = s.en * (s.postes > 0 ? clamp(s.part, 0, 1) : 1);
+    }
+
+    var candidates = V.salles.filter(function (x) { return x.veut && x.enReel > 0; });
     var demandee = 0;
-    for (i = 0; i < candidates.length; i++) demandee += candidates[i].en;
+    for (i = 0; i < candidates.length; i++) demandee += candidates[i].enReel;
 
     if (demandee > produite) {
         candidates.sort(function (a, b) { return a.prio - b.prio; });
         for (i = 0; i < candidates.length && demandee > produite; i++) {
             candidates[i].coupee = true;
-            demandee -= candidates[i].en;
+            demandee -= candidates[i].enReel;
         }
     }
 
@@ -297,6 +415,8 @@ function simPas(dtSec) {
     if (fEau < 0.999) alerte("eau", "Plus d'eau potable a bord.", "mal");
     else alerteLevee("eau");
 
+    gererAbsences(dj);
+
     var deuil = 0;
 
     for (i = 0; i < V.clones.length; i++) {
@@ -305,15 +425,18 @@ function simPas(dtSec) {
 
         /* faim */
         c.faim = clamp(c.faim + CFG.FAIM_JOUR * dj, 0, 100);
-        if (c.faim > CFG.FAIM_SEUIL_REPAS && vie.active && V.res.vivres >= CFG.VIVRES_REPAS) {
+        if (c.faim > CFG.FAIM_SEUIL_REPAS && vie.active && arriveDans(c, "vie")
+            && V.res.vivres >= CFG.VIVRES_REPAS) {
             retire("vivres", CFG.VIVRES_REPAS, "vie");
             c.faim = clamp(c.faim - CFG.FAIM_REPAS, 0, 100);
-            ajoute("dechets", 0.4, "vie");
+            vie.salete = clamp(vie.salete + 0.8, 0, 100);
         }
 
         /* fatigue */
         var df;
-        if (c.poste.type === "repos") df = vie.active ? CFG.FATIGUE_REPOS : -8;
+        var auLit = (c.auto === "repos" || c.poste.type === "repos");
+        if (auLit) df = (vie.active && arriveDans(c, "vie")) ? CFG.FATIGUE_REPOS : -4;
+        else if (c.auto === "repas") df = CFG.FATIGUE_LIBRE;
         else if (c.poste.type === "libre" || c.poste.type === "defense") df = CFG.FATIGUE_LIBRE;
         else df = CFG.FATIGUE_TRAVAIL;
         c.fatigue = clamp(c.fatigue + df * dj, 0, 100);
@@ -349,13 +472,15 @@ function simPas(dtSec) {
                     : (fEau < 0.999) ? "soif"
                     : (c.faim > CFG.FAIM_CRITIQUE) ? "faim"
                     : (insalubre) ? "maladie" : "epuisement";
+            s = salleDuPoste(c);
+            if (s && !s.verrouille) s.salete = clamp(s.salete + 12, 0, 100);
             c.poste = { type: "libre", id: null };
-            ajoute("dechets", 9, "vie");
+            c.auto = null; c.retour = null;
             deuil++;
             logMsg(c.nomComplet + " est mort (" + c.cause + "). Le corps part au recyclage.", "mal");
         }
 
-        marcher(c, dtSec);
+        marcher(c, dj);
     }
 
     if (deuil) {
@@ -365,9 +490,16 @@ function simPas(dtSec) {
         }
     }
 
-    /* les dechets du jour */
-    var nSalles = V.salles.filter(function (x) { return x.active; }).length;
-    ajoute("dechets", (CFG.DECHET_PAR_CLONE * nv + CFG.DECHET_PAR_SALLE * nSalles) * dj, "bord");
+    /* LA CRASSE NAIT LA OU SONT LES GENS. Chaque vivant salit la salle ou il
+       se trouve ; personne ne remplit la cuve a dechets a sa place. */
+    for (i = 0; i < V.clones.length; i++) {
+        c = V.clones[i];
+        if (!c.vivant) continue;
+        s = salleDuPoste(c);
+        if (s && !s.verrouille) {
+            s.salete = clamp(s.salete + CFG.SALIT_PAR_CLONE * dj, 0, 100);
+        }
+    }
 
     /* ---------------------------------------------------------------
        6. LA CUVE
@@ -429,10 +561,16 @@ function affecter(cloneId, type, salleId) {
         if (type === "travail") {
             if (s.postes === 0) return false;
             var deja = (c.poste.type === "travail" && c.poste.id === salleId);
-            if (!deja && affectesA(salleId).length >= s.postes) return false;
+            /* on compte les TITULAIRES : la place d'un dormeur lui est
+               gardee. Sans cela, il rentrait de la salle de vie pour
+               trouver son poste donne a un autre. */
+            if (!deja && titulairesDe(salleId).length >= s.postes) return false;
         }
         c.poste = { type: type, id: salleId };
     }
+    /* un ordre de la main l'emporte sur ce qu'il avait decide tout seul */
+    c.auto = null;
+    c.retour = null;
     placerAuPoste(c, false);
     if (typeof rafraichir === "function") rafraichir();
     return true;

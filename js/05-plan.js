@@ -11,6 +11,7 @@ var planSvg = null;
 var planSalles = {};   /* id -> les noeuds a rafraichir */
 var planPoints = {};   /* id de clone -> le cercle */
 var couchePoints = null;
+var HORLOGE = 0;   /* secondes reelles, pour les animations seulement */
 
 function construirePlan() {
     var hote = $("#plan");
@@ -89,6 +90,14 @@ function construireSalle(s) {
         });
         g.appendChild(jauge);
         noeuds.jauge = jauge;
+
+        /* ce que la salle fait en ce moment : un debit, ou l'avancement
+           de son chantier. C'est la ligne qu'on lit sans ouvrir la fiche. */
+        var travT = svgel("text", {
+            x: s.x + 8, y: s.y + 30, fill: "var(--ink)", "font-size": 10
+        });
+        g.appendChild(travT);
+        noeuds.trav = travT;
 
         var saleT = svgel("text", {
             x: s.x + s.w - 8, y: s.y + s.h - 18, fill: "var(--attn)",
@@ -240,7 +249,11 @@ function majPlan() {
 
         if (s.integrite < CFG.PANNE) { couleur = "var(--mal)"; tirets = "5 4"; mot = "PANNE"; }
         else if (s.coupee) { couleur = "var(--attn)"; tirets = "5 4"; mot = "COUPEE"; }
-        else if (s.active) { couleur = "var(--ink)"; mot = s.postes > 0 ? "EN MARCHE" : ""; }
+        else if (s.active) {
+            couleur = "var(--ink)";
+            mot = s.postes > 0 ? (s.part < 0.99 ? "REGIME " + Math.round(s.part * 100) + "%"
+                                                : "EN MARCHE") : "";
+        }
         else if (s.postes > 0) { couleur = "var(--dim)"; mot = "SANS PERSONNEL"; }
 
         n.cadre.setAttribute("stroke", (choisie || vise) ? "var(--ink)" : couleur);
@@ -254,9 +267,10 @@ function majPlan() {
             n.etat.textContent = mot;
             n.etat.setAttribute("fill", couleur === "var(--ink)" ? "var(--dim)" : couleur);
         }
+        if (n.trav) n.trav.textContent = travailCourt(s);
         if (n.sale) {
             n.sale.setAttribute("opacity", s.salete > 22 ? 1 : 0);
-            n.sale.textContent = s.salete > 70 ? "CRASSE" : "SALE";
+            n.sale.textContent = (s.salete > 70 ? "CRASSE " : "SALE ") + Math.round(s.salete);
         }
         if (n.jauge) {
             var large = (s.w - 18) * (s.integrite / 100);
@@ -266,9 +280,12 @@ function majPlan() {
                 s.integrite < 40 ? "var(--attn)" : "var(--ink)");
         }
         if (n.postes) {
-            n.postes.textContent = affectesA(s.id).length + "/" + s.postes;
-            n.postes.setAttribute("fill",
-                affectesA(s.id).length ? "var(--ink)" : "var(--dim)");
+            var tenus = affectesA(s.id).length;
+            var titres = titulairesDe(s.id).length;
+            /* un dormeur garde son poste : on ecrit 1(2)/2 pour le dire */
+            n.postes.textContent = tenus + (titres > tenus ? "(" + titres + ")" : "")
+                                 + "/" + s.postes;
+            n.postes.setAttribute("fill", tenus ? "var(--ink)" : "var(--dim)");
         }
     }
 }
@@ -315,6 +332,12 @@ function majPoints() {
         p.setAttribute("fill", oisif ? "var(--bg)" : teinte);
         p.setAttribute("stroke", teinte);
         p.setAttribute("stroke-width", oisif ? 1.6 : 0);
-        p.setAttribute("r", tenu ? 7.6 : (choisi ? 6.4 : 4.6));
+        /* LE GESTE. Quand il est a son poste et qu'il s'affaire, le point
+           respire ; quand il dort, il s'eteint a moitie. On voit travailler
+           l'equipage sans lire une seule ligne. */
+        var base = tenu ? 7.6 : (choisi ? 6.4 : 4.6);
+        if (sAffaire(c)) base += 1.5 * Math.abs(Math.sin(HORLOGE * 3.2 + c.phase));
+        p.setAttribute("r", base.toFixed(2));
+        p.setAttribute("opacity", c.auto === "repos" ? 0.45 : 1);
     }
 }

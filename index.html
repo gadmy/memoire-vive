@@ -7,73 +7,70 @@
     js/*.js les huit morceaux du script, charges dans l'ordre.
     Pour jouer : ouvrir ce fichier. Aucun serveur n'est necessaire.
 
-    VERSION : 2
-    (la conversation en cours deviendra la v3 a la cloture : le numero ne
+    VERSION : 3
+    (la conversation en cours deviendra la v4 a la cloture : le numero ne
      bouge qu'au changement de conversation, jamais en cours de route)
 
     ================================================================
     CONVERSATION EN COURS - CE QUI VIENT D'ETRE FAIT
     ================================================================
 
-    ON PREND LES GENS A LA MAIN. Un point bleu se SOULEVE a la souris, se
-    promene sur le plan, et se lache dans une salle : un petit menu demande
-    alors ce qu'il doit y faire - travailler, nettoyer, reparer, defendre, ou
-    attaquer. Ce qui est impossible est grise et dit pourquoi ("deja propre",
-    "rien a reparer", "aucun hostile"). Une fois l'ordre choisi, le clone part
-    de la ou on l'a pris et marche jusqu'a la salle. Deuxieme chemin, pour les
-    memes gestes : dans la fiche d'une salle, un poste vide s'ouvre d'un clic
-    sur la liste de ceux qui ne font rien, classee par ce que chacun VAUT dans
-    cette salle-la.
+    ILS TRAVAILLENT, ET CA SE VOIT. Arrive a son poste, un clone ne se fige
+    plus : il fait quelques pas dans SA salle, s'arrete, reprend. Les arrets
+    sont ses gestes de travail, et c'est pendant ceux-la que son point pulse.
+    Un oisif erre plus loin et plus lentement, un dormeur s'eteint a moitie :
+    on lit ce que fait l'equipage sans ouvrir une seule fiche.
 
-    LES ORDRES SONT DEVENUS DES ORDRES PAR SALLE. L'entretien flottant a
-    disparu : on ne repare plus "la salle la plus abimee", on envoie quelqu'un
-    reparer CELLE-CI. Reparer consomme des materiaux. Nettoyer retire la
-    salete et la porte a la cuve a dechets, ou le recyclage en tire de la
-    matiere - rien ne se perd. Defendre occupe la salle sans y travailler, et
-    attaquer attend ses hostiles.
+    CHAQUE SALLE DIT CE QU'ELLE FAIT. Une ligne sous son nom, sur le plan :
+    soit un DEBIT pour ce qui ne finit jamais ("+13 en/j", "+6 oxy/j"), soit
+    l'AVANCEMENT d'un chantier qui aura une fin - une cuve, une reparation, un
+    menage - avec ce qu'il reste a tenir. La fiche donne le detail et une barre
+    de progression. Le temps est compte EN JOURS et non en minutes : une minute
+    reelle ne veut rien dire quand on passe de x1 a x16 quand on veut, alors
+    qu'un jour reste un jour.
 
-    LA SALETE, NOUVELLE PRESSION. Une salle qui tourne se salit. Les quarante
-    premiers points sont gratuits ; au-dela, elle rend jusqu'a 30 pour cent de
-    moins. C'est lent (0,30 par jour), donc c'est une corvee a placer, pas une
-    urgence permanente.
+    LES DECHETS NE TOMBENT PLUS DU CIEL. Ils naissent LA OU SONT LES GENS :
+    chaque corps salit la salle ou il se trouve, chaque salle en marche se
+    salit toute seule, les repas salissent la salle de vie et un mort la sienne.
+    Rien n'arrive jamais directement dans la cuve a dechets. Il faut que
+    quelqu'un aille NETTOYER pour que la crasse y descende - et c'est de cette
+    cuve que le recyclage tire l'eau et la matiere. Negliger le menage, c'est
+    se priver des deux : le balai est devenu la source des materiaux.
 
-    UNE SALLE TENUE S'ENTRETIENT SEULE. Un operateur graisse et resserre sans
-    qu'on le lui demande : une salle ou quelqu'un travaille s'use trois fois
-    moins, et une salle en veille ne pourrit plus. Sans cette regle il aurait
-    fallu un reparateur a plein temps des le premier jour, et avec quatre corps
-    il n'y en a pas.
+    UNE SALLE A MOITIE TENUE TOURNE A MOITIE. Elle ne s'arrete plus. Elle
+    affiche "REGIME 50%" et, surtout, elle ne tire plus que la MOITIE du
+    courant : l'energie se paie desormais au prorata des postes tenus. Avant,
+    sous-staffer coutait le prix fort pour un demi-resultat, et on n'avait donc
+    jamais interet a mettre une seule personne quelque part.
 
-    LE VAISSEAU RESPIRE, ET CA SE VOIT. Chaque fois qu'une salle produit, un
-    trait lumineux part d'elle, longe la coursive et va se jeter dans la jauge
-    concernee, en bas de l'ecran. Ce qui se consomme fait le trajet inverse, en
-    plus sombre. Des chiffres popent dans la salle au depart et sur la jauge a
-    l'arrivee - et en rouge quand une reserve pleine deborde, parce que remplir
-    une cuve pleine, c'est jeter ce qu'on vient de produire.
+    ILS SE DEBROUILLENT SEULS. Un clone epuise quitte son poste, va dormir a la
+    salle de vie et revient une fois repose ; un clone affame va manger et
+    retourne travailler. On n'a pas a le leur dire - vous etes une voix dans
+    les murs, pas un contremaitre. Le poste quitte lui reste RESERVE : le plan
+    ecrit 1(2)/2 pour dire "un present, un au lit". Il n'y a que quatre places
+    dans la salle de vie : au-dela, on travaille fatigue.
 
-    L'EQUIPAGE PARLE. Des bulles au-dessus des points : des banalites quand
-    tout va, de l'incomprehension envers "la machine" quand une salle est sale,
-    vide ou cassee - ils ne savent pas qu'un esprit humain les dirige - et de
-    l'admiration quand le bord est propre et les reserves pleines. Deux bulles
-    au maximum, et un bouton MICRO en haut a droite pour les couper.
+    UN DEFAUT DE FOND CORRIGE : ON MARCHE EN TEMPS DE JEU. Le deplacement se
+    comptait en secondes reelles alors que la faim et la fatigue se comptent en
+    jours. A x16, traverser le vaisseau coutait donc trois jours, et l'equipage
+    passait sa vie dans les coursives a mourir de faim. Tout est passe en
+    jours ; en prime, la simulation ne depend plus de la vitesse d'affichage.
 
-    DEUX BUGS TROUVES EN CHEMIN, ET TOUS DEUX INVISIBLES. Le pilote du banc
-    appelait un ordre qui n'existait plus : il n'a ni repare ni nettoye pendant
-    plusieurs series de reglages, et j'ai equilibre le jeu sur un test faux.
-    Et la constante REPARE_MAT n'avait jamais ete ecrite dans 00-config.js : un
-    patch n'avait pas pris, silencieusement. Elle valait donc undefined, ce qui
-    mettait l'integrite de la salle ET la reserve de materiaux a NaN. La
-    fonction retire() refuse desormais toute valeur non finie et le dit dans le
-    journal. Depuis, le relais est atteint au jour 408 avec un pilote mediocre.
+    LE REGLAGE A SUIVI. Les besoins ont ete espaces (on a faim et on se fatigue
+    moins vite, on mange plus tard) parce qu'entre les repas et le sommeil
+    l'equipage etait absent plus d'un tiers du temps. Un corps respire un peu
+    moins, pour qu'un seul fermier puisse tenir huit personnes. Relais atteint
+    au jour 680 environ avec un pilote mediocre.
 
     ================================================================
     ETAT DES CHANTIERS
     ================================================================
 
     CE QUI RESTE VRAIMENT A FAIRE
-    1. JOUER CETTE TRANCHE ET LE DIRE. Est-ce tendu ? Est-ce lisible ? Y a-t-il
-       une decision interessante toutes les trente secondes ?
-    2. Le reglage des chiffres : tout est dans js/00-config.js. La v2 a ete
-       equilibree au banc, pas a la main : le ressenti reste a confirmer.
+    1. JOUER CETTE TRANCHE ET LE DIRE. Est-ce tendu ? Est-ce lisible ?
+    2. Le reglage des chiffres : tout est dans js/00-config.js. Trois versions
+       de suite ont ete equilibrees au banc, jamais a la main : le ressenti
+       reste entierement a confirmer.
     3. Les trois questions de conception encore ouvertes : la desobeissance
        (un clone demoralise travaille-t-il mal, ou refuse-t-il ?), ce que veut
        dire gagner, et l'echelle du die and retry (sauvegarde ou arche neuve).
@@ -82,14 +79,23 @@
 
     CE QUI VIENDRA SE BRANCHER DESSUS, DANS L'ORDRE PROBABLE
     - Le sas et les sorties : epaves, planetes, points bleus et rouges.
-    - Les extraterrestres : abordage et vaisseau contre vaisseau. L'ordre
-      ATTAQUER et l'ordre DEFENDRE les attendent deja.
-    - Le chantier : poser, demolir et agrandir la coque.
+    - Les extraterrestres : abordage et vaisseau contre vaisseau. Les ordres
+      ATTAQUER et DEFENDRE les attendent deja.
+    - Le chantier : poser, demolir et agrandir la coque. Des lits en plus
+      seraient le premier vrai besoin : quatre places, c'est peu.
     - L'armurerie : vetements, armes, materiel de minage.
     - La carte des etoiles et le choix du cap.
     - La technologie extraterrestre a etudier.
 
     LOG
+    v3 - la salle devient un lieu de travail. Gestes dans la salle et points
+        qui pulsent, debit ou avancement affiche par salle, dechets devenus
+        locaux (le menage est la seule porte vers la cuve, donc vers les
+        materiaux), energie et regime au prorata des postes tenus, repos et
+        repas automatiques avec poste reserve et quatre lits. Defaut de fond
+        corrige : la marche se comptait en secondes reelles alors que les
+        besoins se comptent en jours - a x16 l'equipage vivait dans les
+        coursives. Tout est passe en temps de jeu.
     v2 - on prend les gens a la main. Glisser-deposer d'un point sur une salle
         avec menu d'ordres (travailler, nettoyer, reparer, defendre, attaquer),
         postes vides cliquables depuis la fiche, ordres devenus par salle,

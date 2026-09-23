@@ -6,7 +6,7 @@
    dans ce fichier qu'on vient la tourner.
    ================================================================ */
 
-var VERSION = 2;
+var VERSION = 3;
 document.title = "Memoire Vive v" + VERSION;
 
 /* ---- LE TEMPS ----
@@ -23,19 +23,45 @@ var CFG = {
     AVANCE_JOUR: 1.20,    /* progression par jour, moteur a plein rendement */
 
     /* ---- CE QUE CONSOMME UN VIVANT, PAR JOUR ---- */
-    OXY_PAR_CLONE: 0.80,
+    OXY_PAR_CLONE: 0.62,
     EAU_PAR_CLONE: 0.35,   /* la perte NETTE : le reste est recycle en continu */
-    DECHET_PAR_CLONE: 0.18,
-    DECHET_PAR_SALLE: 0.10,
+    /* LES DECHETS NE TOMBENT PLUS DU CIEL. Un corps salit LA SALLE OU IL SE
+       TROUVE, et une salle qui tourne se salit toute seule. Rien n'arrive
+       jamais directement dans la cuve a dechets : il faut que quelqu'un aille
+       nettoyer pour que la crasse y descende - et c'est de la que le recyclage
+       tire l'eau et la matiere. Negliger le menage, c'est se priver des deux. */
+    SALIT_PAR_CLONE: 0.25,
+
+    /* ---- ILS SE DEBROUILLENT SEULS ----
+       Un clone epuise quitte son poste pour la salle de vie et y revient
+       une fois repose ; un clone affame va manger et retourne travailler.
+       On n'a pas a le leur dire : vous etes une voix dans les murs, pas un
+       contremaitre. Le poste quitte est RETENU et rendu au retour. */
+    FATIGUE_AUTO: 78,     /* au-dessus, il va se coucher de lui-meme */
+    FATIGUE_REPRISE: 16,  /* en dessous, il retourne a son poste */
+    FAIM_AUTO: 75,        /* au-dessus, il va manger */
+    FAIM_RASSASIE: 22,    /* en dessous, il retourne a son poste */
+    LITS: 4,              /* combien tiennent dans la salle de vie a la fois */
+
+    /* ---- LA MARCHE, EN TEMPS DE JEU ----
+       Capital : on se deplace en JOURS, pas en secondes reelles. Sinon, a
+       x16, traverser le vaisseau coutait trois jours de faim et de fatigue,
+       et l'equipage passait sa vie dans les coursives. En prime, la
+       simulation ne depend plus de la vitesse d'affichage. */
+    MARCHE: 950,          /* unites de plan parcourues par jour, en transit */
+    AFFAIRE: 260,         /* la meme chose, mais en s'affairant sur place */
+    PAUSE_TRAVAIL: 0.09,  /* duree d'un geste, en jours */
+    PAUSE_OISIF: 0.30,
+    PAUSE_REPOS: 0.55,
 
     /* ---- LES BESOINS ---- */
-    FAIM_JOUR: 14,        /* la faim monte de tant par jour */
-    FAIM_SEUIL_REPAS: 55, /* au-dela, le clone va manger s'il le peut */
+    FAIM_JOUR: 9,        /* la faim monte de tant par jour */
+    FAIM_SEUIL_REPAS: 55, /* au-dela, un repas lui profite */
     FAIM_REPAS: 62,       /* ce qu'un repas retire a la faim */
     VIVRES_REPAS: 1,      /* ce qu'un repas coute */
     FAIM_CRITIQUE: 92,    /* au-dela, la sante tombe */
 
-    FATIGUE_TRAVAIL: 6.5,  /* par jour a un poste */
+    FATIGUE_TRAVAIL: 5.5,  /* par jour a un poste */
     FATIGUE_LIBRE: 4,     /* par jour sans rien faire */
     FATIGUE_REPOS: -30,   /* par jour en salle de vie */
     FATIGUE_EPUISE: 96,   /* au-dela, le clone s'effondre */
@@ -56,12 +82,13 @@ var CFG = {
        Une salle qui tourne se salit, et une salle sale rend moins. Un clone
        envoye au NETTOYAGE la debarrasse et porte ce qu'il ramasse a la cuve
        a dechets, ou le recyclage en tirera de la matiere. */
-    SALETE_JOUR: 0.30,     /* ce qu'une salle en marche se salit par jour */
+    SALETE_JOUR: 0.20,     /* ce qu'une salle en marche se salit par jour */
     SALETE_ARRET: 0.08,
     SALETE_SEUIL: 40,     /* en dessous, la crasse ne coute rien : on a le temps */
     SALETE_MALUS: 0.30,   /* a 100 de salete, la salle rend 40 % de moins */
     NETTOIE_JOUR: 26,     /* points de salete retires par jour, a plein */
-    SALETE_VERS_DECHETS: 0.14,  /* ce qu'un point de salete pese dans la cuve */
+    SALETE_VERS_DECHETS: 0.45,  /* ce qu'un point de salete pese dans la cuve :
+                               un passage de balai doit VALOIR le detour */
 
     /* ---- L'USURE ---- */
     USURE_JOUR: 0.35,
@@ -219,7 +246,7 @@ function ordresPour(s) {
         raison = null;
         if (s.verrouille) raison = "salle scellee";
         else if (o.k === "travail" && s.postes === 0) raison = "aucun poste ici";
-        else if (o.k === "travail" && affectesA(s.id).length >= s.postes) raison = "postes pleins";
+        else if (o.k === "travail" && titulairesDe(s.id).length >= s.postes) raison = "postes pleins";
         else if (o.k === "nettoyage" && s.salete < 1) raison = "deja propre";
         else if (o.k === "reparation" && s.integrite > 99.5) raison = "rien a reparer";
         else if (o.k === "attaque") raison = "aucun hostile";

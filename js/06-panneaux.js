@@ -38,6 +38,76 @@ function vignette(k) {
          + 'stroke-linecap="round" stroke-linejoin="round">' + ICONES[k] + "</g></svg>";
 }
 
+/* ================= CE QUE FAIT UNE SALLE, EN UNE LIGNE =================
+   Deux cas, et deux seulement :
+   - un CHANTIER qui finit un jour (une cuve, une reparation, un menage) :
+     on rend l'avancement et ce qu'il reste a tenir ;
+   - un DEBIT qui ne finit jamais (energie, vivres, eau, progression) :
+     on rend ce qu'elle sort par jour, au regime actuel.
+   Le temps est compte EN JOURS et non en minutes : une minute reelle ne veut
+   rien dire quand le joueur passe de x1 a x16 quand il veut, alors qu'un jour
+   reste un jour. */
+function forceSur(id, type, comp) {
+    var eq = aLaSalle(id, type), f = 0, i;
+    for (i = 0; i < eq.length; i++) f += rendementClone(eq[i], comp);
+    return f;
+}
+
+function travailDe(s) {
+    var f, reste;
+
+    /* --- les chantiers --- */
+    if (s.id === "naissance" && V.decantation) {
+        var r = s.active ? clamp(s.rendement, 0.01, 1.4) : 0;
+        return { pc: 100 * (1 - V.decantation.reste / CFG.NAISSANCE_JOURS),
+                 reste: r > 0 ? V.decantation.reste / r : null,
+                 quoi: "Decantation" };
+    }
+    f = forceSur(s.id, "reparation", "mecanique");
+    if (f > 0.01 && s.integrite < 99.5) {
+        reste = (100 - s.integrite) / (f * CFG.REPARE_JOUR);
+        return { pc: s.integrite, reste: reste, quoi: "Reparation" };
+    }
+    f = forceSur(s.id, "nettoyage", "chimie");
+    if (f > 0.01 && s.salete > 0.5) {
+        reste = s.salete / (f * CFG.NETTOIE_JOUR);
+        return { pc: 100 - s.salete, reste: reste, quoi: "Nettoyage" };
+    }
+
+    /* --- les debits --- */
+    if (!s.active) return null;
+    var d = [];
+    if (s.id === "machines") d.push([signe(RECETTES.machines.rend.energie * s.rendement), "energie", "en"]);
+    if (s.id === "ferme") {
+        d.push([signe(RECETTES.ferme.rend.oxy * s.rendement), "oxygene", "oxy"]);
+        d.push([signe(RECETTES.ferme.rend.vivres * s.rendement), "vivres", "viv"]);
+    }
+    if (s.id === "recyclage") {
+        d.push([signe(RECETTES.recyclage.rend.eau * s.rendement), "eau", "eau"]);
+        d.push([signe(RECETTES.recyclage.rend.mat * s.rendement), "materiaux", "mat"]);
+    }
+    if (s.id === "moteur") {
+        var ctrl = salleParId("controle");
+        d.push([signe(ctrl.active ? CFG.AVANCE_JOUR * s.rendement : 0), "% de relais", "%"]);
+    }
+    if (!d.length) return null;
+    return {
+        debit: d.map(function (x) { return x[0] + " " + x[1]; }).join(" · ") + " /j",
+        /* la version courte tient dans une salle du plan : on n'y garde que
+           la production PRINCIPALE, le detail est dans la fiche */
+        court: d[0][0] + " " + d[0][2] + "/j"
+    };
+}
+
+/* La meme chose, mais courte, pour l'ecrire dans la salle du plan. */
+function travailCourt(s) {
+    var t = travailDe(s);
+    if (!t) return "";
+    if (t.debit) return t.court;
+    return Math.round(t.pc) + " %"
+         + (t.reste !== null && isFinite(t.reste) ? " · " + nb(t.reste) + " j" : "");
+}
+
 /* ---- UNE LIGNE CHIFFREE ---- */
 function ligne(k, v, ton) {
     return '<div class="row"><span class="k">' + k + '</span>'
@@ -115,11 +185,22 @@ function carteSalle(hote, s) {
                s.integrite < CFG.PANNE ? "bad" : (s.integrite < 40 ? "warn" : ""));
     h += ligne("Proprete", pc(100 - s.salete),
                s.salete > 70 ? "bad" : (s.salete > 30 ? "warn" : ""));
-    if (s.en > 0) h += ligne("Energie", nb(s.en) + " /j");
+    if (s.en > 0) h += ligne("Energie a plein", nb(s.en) + " /j");
     if (s.postes > 0) {
-        h += ligne("Postes", affectesA(s.id).length + " / " + s.postes,
+        h += ligne("Postes tenus", affectesA(s.id).length + " / " + s.postes,
                    affectesA(s.id).length ? "" : "warn");
-        h += ligne("Rendement", nb(s.rendement * 100 / s.postes) + " %");
+        h += ligne("Regime", pc(s.rendement * 100 / s.postes));
+        if (s.en > 0) h += ligne("Courant tire", nb(s.enReel) + " /j");
+    }
+    var tr = travailDe(s);
+    if (tr) {
+        if (tr.debit) {
+            h += ligne("Debit", tr.debit);
+        } else {
+            h += ligne(tr.quoi, pc(tr.pc)
+                 + (tr.reste !== null && isFinite(tr.reste) ? " &middot; " + nb(tr.reste) + " j" : ""));
+            h += '<div class="prog"><i style="width:' + clamp(tr.pc, 0, 100).toFixed(1) + '%"></i></div>';
+        }
     }
     h += ligneProduction(s);
     h += "</div>";
@@ -128,14 +209,15 @@ function carteSalle(hote, s) {
        tenu se libere d'un clic. On peut aussi glisser un point du plan. */
     var i, j, eq, autres, ordreK;
     if (s.postes > 0) {
-        eq = affectesA(s.id);
+        eq = titulairesDe(s.id);
         h += '<div class="card-bd" style="border-top:1px solid var(--line);">'
            + '<div class="k" style="margin-bottom:4px;">Postes de travail</div>';
         for (i = 0; i < s.postes; i++) {
             if (eq[i]) {
-                h += '<div class="poste" data-lib="' + eq[i].id + '">'
+                h += '<div class="poste' + (eq[i].auto ? " absent" : "") + '" data-lib="' + eq[i].id + '">'
                    + '<span class="pn">' + eq[i].nomComplet + "</span>"
-                   + '<span class="px">retirer</span></div>';
+                   + '<span class="px">' + (eq[i].auto === "repos" ? "dort"
+                       : (eq[i].auto === "repas" ? "mange" : "retirer")) + "</span></div>";
             } else {
                 h += '<div class="poste vide" data-vide="' + s.id + '">'
                    + '<span class="pn">Poste vide</span>'
@@ -207,6 +289,7 @@ function ouvrirChoixClone(salleId, ecx, ecy) {
     fermerMenu();
     var s = salleParId(salleId);
     if (!s) return;
+    if (titulairesDe(salleId).length >= s.postes) return;
     var libres = disponibles();
     libres.sort(function (a, b) {
         return rendementClone(b, s.comp) - rendementClone(a, s.comp);
@@ -285,7 +368,7 @@ function carteClone(hote, c) {
 
     h += '<div class="card-bd">';
     h += ligne("Etat", e.n, e.k === "grave" ? "bad" : (e.k === "faible" ? "warn" : ""));
-    h += ligne("Poste", nomPoste(c.poste));
+    h += ligne("Poste", nomPoste(c.poste, c));
     h += ligne("Sante", pc(c.sante), c.sante < 40 ? "bad" : (c.sante < 70 ? "warn" : ""));
     h += ligne("Fatigue", pc(c.fatigue), c.fatigue > 85 ? "bad" : (c.fatigue > 60 ? "warn" : ""));
     h += ligne("Faim", pc(c.faim), c.faim > 85 ? "bad" : (c.faim > 60 ? "warn" : ""));
@@ -334,7 +417,7 @@ function majEquipage() {
         h += '<div class="mini' + (choisi ? " sel" : "") + '" data-c="' + c.id + '">'
            + '<div class="mh"><i class="dotv ' + e.k + '"></i><div>'
            + '<div class="mn">' + c.prenom.charAt(0) + ". " + c.nom + "</div>"
-           + '<div class="mp">' + nomPoste(c.poste) + "</div></div></div>"
+           + '<div class="mp">' + nomPoste(c.poste, c) + "</div></div></div>"
            + '<div class="tri">'
            + '<div class="bar"><i style="width:' + c.sante.toFixed(0) + '%"></i></div>'
            + '<div class="bar"><i style="width:' + (100 - c.fatigue).toFixed(0) + '%"></i></div>'

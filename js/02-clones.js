@@ -100,6 +100,9 @@ function faireClone(metierVoulu) {
         moral: rndInt(58, 82),
 
         poste: { type: "libre", id: null },
+        auto: null,        /* "repos" ou "repas" quand il s'absente de lui-meme */
+        retour: null,      /* le poste qu'on lui rendra en revenant */
+        phase: rnd() * 6.28,  /* le dephasage de sa pulsation a l'ecran */
         vivant: true,
         cause: null,
 
@@ -147,7 +150,9 @@ var VERBE = {
     defense: "Defend ", attaque: "Attaque "
 };
 
-function nomPoste(p) {
+function nomPoste(p, c) {
+    if (c && c.auto === "repos") return "Se repose";
+    if (c && c.auto === "repas") return "Va manger";
     if (!p || p.type === "libre") return "Libre";
     if (p.type === "repos") return "Repos";
     var s = salleParId(p.id);

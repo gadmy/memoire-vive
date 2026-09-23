@@ -149,6 +149,7 @@ function boucle(t) {
     if (etat !== "jeu") return;
 
     /* ce qui bouge a chaque image */
+    HORLOGE += dt;
     majPoints();
     majPlan();
     majBarre();
