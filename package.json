@@ -1,0 +1,12 @@
+{
+  "name": "memoire-vive",
+  "version": "1.0.0",
+  "description": "Memoire Vive - gestion d'un vaisseau-arche peuple de clones. Vanilla JS, sans outil de construction.",
+  "private": true,
+  "scripts": {
+    "banc": "node tools/banc.js 1800",
+    "naufrage": "node tools/banc.js 400 sans",
+    "check": "node -e \"require('fs').readdirSync('js').forEach(f=>require('child_process').execSync('node --check js/'+f))\" && echo \"js/ : syntaxe OK\""
+  },
+  "devDependencies": { "playwright": "^1.63.0" }
+}

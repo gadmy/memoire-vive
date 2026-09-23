@@ -1,0 +1,247 @@
+/* ================================================================
+   MEMOIRE VIVE - feuille de style unique.
+   L'ambiance AMBRE : tout l'ecran est monochrome sauf deux signaux,
+   le bleu des vivants et le rouge du danger. Changer d'ambiance, c'est
+   changer les six variables du bloc :root, et rien d'autre.
+   ================================================================ */
+
+:root{
+    color-scheme: dark;
+
+    /* --- l'ambiance --- */
+    --bg:#130e05;          /* le fond du tube */
+    --ink:#ffbb52;         /* le trait et le texte */
+    --dim:#9a6a24;         /* ce qui est secondaire */
+    --line:#6a4714;        /* les filets */
+    --panel:#1c1408;       /* le fond d'un bloc */
+    --panel2:#241a0b;      /* un bloc en avant */
+
+    /* --- les deux signaux, jamais utilises pour autre chose --- */
+    --vie:#6ecbff;         /* un vivant */
+    --mal:#ff5a3c;         /* un danger */
+    --attn:#ffe27a;        /* un avertissement */
+
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{
+    background:#07050a;
+    color:var(--ink);
+    font-family:var(--mono);
+    font-size:13px;
+    line-height:1.5;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+}
+
+/* ---------------- le meuble ---------------- */
+#meuble{
+    height:100%;
+    padding:clamp(6px,1.2vw,18px);
+    display:flex;
+    background:linear-gradient(180deg,#1b1f25,#0d1013);
+}
+#tube{
+    flex:1;
+    position:relative;
+    overflow:hidden;
+    border-radius:6px;
+    background:var(--bg);
+    border:1px solid #2a3038;
+    box-shadow:0 20px 50px -28px #000, inset 0 1px 0 #333a44;
+}
+#tube::after{                     /* les lignes de balayage */
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:40;
+    background:repeating-linear-gradient(180deg,rgba(0,0,0,.26) 0 1px,transparent 1px 3px);
+    mix-blend-mode:multiply;
+}
+#tube::before{                    /* le bombe du verre */
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:39;
+    background:radial-gradient(120% 92% at 50% 45%,transparent 50%,rgba(0,0,0,.6) 100%);
+}
+
+#console{
+    position:absolute;inset:0;z-index:2;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+    padding:clamp(8px,1.2vw,16px);
+    gap:10px;
+    overflow:hidden;
+}
+
+/* ---------------- barre du haut ---------------- */
+.scr-top{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;
+    border-bottom:1px solid var(--line);padding-bottom:8px;
+}
+.scr-title{font-weight:600;letter-spacing:.16em;text-transform:uppercase;}
+.scr-meta{color:var(--dim);letter-spacing:.09em;text-transform:uppercase;}
+.scr-meta.mal{color:var(--mal);}
+.spacer{flex:1;}
+#vit{display:flex;gap:4px;}
+#vit span{
+    border:1px solid var(--line);padding:1px 9px;color:var(--dim);
+    cursor:pointer;user-select:none;letter-spacing:.06em;
+}
+#vit span:hover{color:var(--ink);border-color:var(--dim);}
+#vit span.on{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+
+#distbar{position:relative;height:6px;width:120px;border:1px solid var(--line);}
+#distb{position:absolute;inset:0 auto 0 0;background:var(--ink);}
+
+/* ---------------- le corps : plan | carte | equipage ---------------- */
+#corps{
+    display:grid;
+    grid-template-columns:minmax(0,1.75fr) minmax(215px,.72fr) minmax(150px,.52fr);
+    gap:10px;
+    min-height:0;
+}
+#colg{display:flex;flex-direction:column;gap:10px;min-height:0;}
+#plan{
+    border:1px solid var(--line);background:var(--panel);padding:8px;
+}
+#plan svg{display:block;width:100%;height:auto;}
+
+#basg{
+    flex:1;min-height:0;display:flex;flex-direction:column;
+    border-top:1px solid var(--line);padding-top:8px;
+}
+#journal{overflow-y:auto;min-height:0;display:grid;gap:2px;align-content:start;}
+#journal div{display:flex;gap:9px;}
+#journal time{color:var(--dim);flex:none;}
+#journal .mal{color:var(--mal);}
+#journal .bien{color:var(--vie);}
+#journal .cap{color:var(--attn);}
+
+#colc,#cold{min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+#cold{gap:6px;}
+
+.colhd{
+    display:flex;justify-content:space-between;gap:8px;
+    color:var(--dim);letter-spacing:.12em;text-transform:uppercase;
+    font-size:11px;border-bottom:1px solid var(--line);padding-bottom:5px;
+    position:sticky;top:0;background:var(--bg);z-index:3;
+}
+
+/* ---------------- la carte ---------------- */
+.card{border:1px solid var(--ink);background:var(--panel);}
+.card-img{
+    border-bottom:1px solid var(--line);background:var(--panel2);
+    aspect-ratio:16/7;display:flex;align-items:center;justify-content:center;padding:8px;
+}
+.card-img svg{width:100%;height:100%;}
+.card-hd{padding:7px 10px;border-bottom:1px solid var(--line);}
+.card-hd .nm{font-weight:600;letter-spacing:.1em;text-transform:uppercase;line-height:1.25;}
+.card-hd .sub{color:var(--dim);letter-spacing:.07em;text-transform:uppercase;font-size:.85em;}
+.card-bd{padding:7px 10px;display:grid;gap:3px;}
+.card-ft{
+    padding:7px 10px;border-top:1px solid var(--line);color:var(--dim);
+    font-size:.9em;line-height:1.45;
+}
+.card-ft b{color:var(--attn);font-weight:500;}
+
+.row{display:flex;justify-content:space-between;gap:12px;align-items:baseline;}
+.row .k{color:var(--dim);letter-spacing:.05em;text-transform:uppercase;font-size:.85em;}
+.row .v{font-variant-numeric:tabular-nums;text-align:right;}
+.v.bad{color:var(--mal);}
+.v.warn{color:var(--attn);}
+
+/* les postes, cliquables */
+.poste{
+    display:flex;justify-content:space-between;gap:10px;align-items:baseline;
+    border:1px solid var(--line);padding:3px 8px;cursor:pointer;
+}
+.poste:hover{border-color:var(--ink);background:var(--panel2);}
+.poste .px{color:var(--dim);font-size:.82em;text-transform:uppercase;letter-spacing:.06em;}
+.poste.vide{border-style:dashed;color:var(--dim);cursor:default;}
+.poste.vide:hover{border-color:var(--line);background:none;}
+.poste.ici{border-color:var(--ink);background:var(--panel2);}
+.poste.plein{opacity:.4;cursor:not-allowed;}
+.poste.plein:hover{border-color:var(--line);background:none;}
+
+.bt{
+    width:100%;font:inherit;color:var(--bg);background:var(--ink);
+    border:none;padding:5px 8px;cursor:pointer;letter-spacing:.06em;
+    text-transform:uppercase;font-size:.85em;
+}
+.bt:hover{background:var(--attn);}
+
+/* ---------------- l'equipage ---------------- */
+.mini{border:1px solid var(--line);background:var(--panel);padding:6px 7px;display:grid;gap:5px;cursor:pointer;}
+.mini:hover{border-color:var(--dim);}
+.mini.sel{border-color:var(--ink);background:var(--panel2);}
+.mini .mh{display:flex;gap:7px;align-items:center;}
+.mini .dotv{width:9px;height:9px;border-radius:50%;background:var(--vie);flex:none;}
+.mini .dotv.faible{background:var(--attn);}
+.mini .dotv.grave{background:var(--mal);}
+.mini .mn{font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:.92em;line-height:1.2;}
+.mini .mp{color:var(--dim);letter-spacing:.06em;text-transform:uppercase;font-size:.78em;}
+.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+.tri .bar{height:5px;}
+.vide-txt{color:var(--dim);padding:10px 0;}
+
+/* ---------------- les jauges ---------------- */
+#jauges{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px 16px;
+    border-top:1px solid var(--line);padding-top:9px;
+}
+.g .glab{display:flex;justify-content:space-between;gap:8px;
+    color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-size:.85em;margin-bottom:3px;}
+.g .glab b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums;}
+.g.crit .glab b{color:var(--mal);}
+.g.low .glab b{color:var(--attn);}
+.bar{position:relative;height:9px;background:var(--panel2);border:1px solid var(--line);}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--ink);}
+.g.crit .bar i{background:var(--mal);}
+.g.low .bar i{background:var(--attn);}
+.bar::after{
+    content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg,transparent 0 4px,var(--bg) 4px 6px);
+}
+
+/* ---------------- menu et fin ---------------- */
+#ecran{
+    position:absolute;inset:0;z-index:50;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(8,5,2,.93);padding:20px;overflow-y:auto;
+}
+.panneau{
+    border:1px solid var(--ink);background:var(--panel);
+    padding:clamp(20px,3vw,34px);max-width:560px;width:100%;
+}
+.panneau h1{
+    font-size:clamp(26px,4.4vw,40px);letter-spacing:.06em;text-transform:uppercase;
+    line-height:1.05;font-weight:600;
+}
+.panneau .ss{color:var(--dim);letter-spacing:.14em;text-transform:uppercase;font-size:11px;margin-top:6px;}
+.panneau p{margin-top:14px;color:var(--dim);line-height:1.6;}
+.panneau p b{color:var(--ink);font-weight:500;}
+.big{
+    margin-top:22px;width:100%;font:inherit;font-size:15px;
+    color:var(--bg);background:var(--ink);border:none;padding:10px;
+    cursor:pointer;letter-spacing:.14em;text-transform:uppercase;
+}
+.big:hover{background:var(--attn);}
+.bilan{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);margin-top:18px;}
+.bilan div{background:var(--panel);padding:9px;}
+.bilan dt{color:var(--dim);font-size:10px;letter-spacing:.12em;text-transform:uppercase;}
+.bilan dd{font-size:18px;margin-top:3px;font-variant-numeric:tabular-nums;}
+
+/* ---------------- petit ecran ---------------- */
+@media (max-width:1080px){
+    #corps{grid-template-columns:minmax(0,1.5fr) minmax(200px,1fr);}
+    #cold{display:none;}
+}
+@media (max-width:760px){
+    body{overflow:auto;}
+    #meuble{height:auto;min-height:100%;}
+    #tube{min-height:0;}
+    #console{position:relative;inset:auto;}
+    #corps{grid-template-columns:1fr;}
+    #cold{display:flex;}
+    #journal{max-height:150px;}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
