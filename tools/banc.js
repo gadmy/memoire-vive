@@ -30,6 +30,13 @@ const path = require("path");
       const eq = vivants();
       if (!eq.length) return;
 
+      /* la salle la plus abimee : c'est la qu'on envoie reparer */
+      const pireSalle = () => V.salles.filter(s => !s.verrouille)
+          .sort((a, b) => a.integrite - b.integrite)[0].id;
+      /* la plus sale : c'est la qu'on envoie nettoyer */
+      const pireSale = () => V.salles.filter(s => !s.verrouille)
+          .sort((a, b) => b.salete - a.salete)[0];
+
       /* qui dort : au-dessus de 78 on va au lit, et on y reste jusqu'a 20.
          JAMAIS PLUS D'UN A LA FOIS : c'est la faute qui vidait les machines
          quand les quatre s'epuisaient ensemble. */
@@ -57,12 +64,19 @@ const path = require("path");
 
       const postes = [];
       postes.push({ t: "salle", id: "machines", comp: "mecanique" });
+      /* une salle sous 40 d'integrite passe avant tout le reste : sans
+         machines, il n'y a plus de partie */
       if (urgent) postes.push({ t: "entretien", comp: "mecanique" });
       postes.push({ t: "salle", id: "ferme", comp: "botanique" });
+      const crasse = pireSale();
+      if (crasse && crasse.salete > 80) {
+        postes.push({ t: "nettoyage", comp: "chimie", id: crasse.id });
+      }
       if (sale) postes.push({ t: "salle", id: "recyclage", comp: "chimie" });
       if (etouffe) postes.push({ t: "salle", id: "ferme", comp: "botanique" });
       if (veutCuve) postes.push({ t: "salle", id: "naissance", comp: "medecine" });
       if (abimee) postes.push({ t: "entretien", comp: "mecanique" });
+
       postes.push({ t: "salle", id: "machines", comp: "mecanique" });
       postes.push({ t: "salle", id: "recyclage", comp: "chimie" });
       postes.push({ t: "salle", id: "controle", comp: "commandement" });
@@ -75,21 +89,38 @@ const path = require("path");
         if (!reste.length) break;
         reste.sort((x, y) => y.comp[p.comp] - x.comp[p.comp]);
         const c = reste.shift();
-        if (p.t === "entretien") affecter(c.id, "entretien", null);
-        else affecter(c.id, "salle", p.id);
+        if (p.t === "entretien") affecter(c.id, "reparation", p.id || pireSalle());
+        else if (p.t === "nettoyage") affecter(c.id, "nettoyage", p.id);
+        else affecter(c.id, "travail", p.id);
       }
 
-      if (!V.decantation && V.res.mat >= CFG.NAISSANCE_MAT
-          && affectesA("naissance").length && eq.length < 8) {
+          if (!V.decantation && V.res.mat >= CFG.NAISSANCE_MAT
+          && affectesA("naissance").length && eq.length < 11) {
         lancerDecantation();
       }
     }
 
     const releves = [];
+    let bug = null;
     const pasParJour = Math.round(CFG.SEC_PAR_JOUR / CFG.PAS);
     for (let j = 0; j < jours; j++) {
       if (pilote) jouerUnTour();
-      for (let k = 0; k < pasParJour; k++) { if (etat !== "jeu") break; simPas(CFG.PAS); }
+      for (let k = 0; k < pasParJour; k++) {
+        if (etat !== "jeu") break;
+        simPas(CFG.PAS);
+        if (!bug) {
+          for (const s of V.salles) {
+            if (!isFinite(s.integrite) || !isFinite(s.salete)) {
+              bug = { jour: +V.jour.toFixed(2), salle: s.id,
+                      integrite: String(s.integrite), salete: String(s.salete),
+                      mat: +V.res.mat.toFixed(1),
+                      repa: aLaSalle(s.id, "reparation").map(c => c.id),
+                      nett: aLaSalle(s.id, "nettoyage").map(c => c.id),
+                      trav: affectesA(s.id).map(c => c.id) };
+            }
+          }
+        }
+      }
       if (j % 20 === 0 || etat !== "jeu") {
         releves.push({
           jour: Math.floor(V.jour),
@@ -101,14 +132,16 @@ const path = require("path");
           dechets: Math.round(V.res.dechets),
           pires: V.salles.filter(s => !s.verrouille)
                    .sort((a, b) => a.integrite - b.integrite)
-                   .slice(0, 2).map(s => s.id + " " + Math.round(s.integrite)).join(", ")
+                   .slice(0, 2).map(s => s.id + " " + Math.round(s.integrite)).join(", "),
+          sale: Math.round(Math.max.apply(null, V.salles.map(s => s.salete)))
         });
       }
       if (etat !== "jeu") break;
     }
-    return { fin: V.fin, etat, releves, journal: V.journal.slice(0, 8).map(l => "J" + l.j + " " + l.txt) };
+    return { bug, fin: V.fin, etat, releves, journal: V.journal.slice(0, 8).map(l => "J" + l.j + " " + l.txt) };
   }, { jours, pilote: process.argv[3] !== "sans" });
 
+  if (res.bug) console.log("BUG :", JSON.stringify(res.bug));
   console.log("fin :", res.fin || "partie en cours", "(" + res.etat + ")");
   console.table(res.releves);
   console.log("\nderniers evenements :\n" + res.journal.join("\n"));

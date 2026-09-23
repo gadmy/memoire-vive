@@ -245,3 +245,90 @@ body{
     #journal{max-height:150px;}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+/* ================================================================
+   CE QU'ON A AJOUTE EN v2 : le menu d'ordres, les traits lumineux,
+   les chiffres qui popent et les bulles de l'equipage.
+   ================================================================ */
+
+/* ---------- le petit menu d'ordres ---------- */
+.ordmenu{
+    position:fixed;z-index:120;min-width:238px;max-width:300px;
+    background:var(--panel);border:1px solid var(--ink);
+    box-shadow:0 14px 34px -14px #000;
+    font-family:var(--mono);font-size:12.5px;
+}
+.ordhd{
+    display:flex;justify-content:space-between;gap:10px;align-items:baseline;
+    padding:6px 10px;border-bottom:1px solid var(--line);
+    letter-spacing:.09em;text-transform:uppercase;font-weight:600;
+}
+.ordhd span{color:var(--dim);font-weight:400;text-transform:none;letter-spacing:.04em;}
+.ord{padding:5px 10px;cursor:pointer;border-bottom:1px solid var(--line);}
+.ord:last-child{border-bottom:none;}
+.ord:hover{background:var(--panel2);}
+.ord .on{display:block;letter-spacing:.05em;}
+.ord .od{display:block;color:var(--dim);font-size:.85em;line-height:1.35;}
+.ord.no{opacity:.38;cursor:not-allowed;}
+.ord.no:hover{background:none;}
+
+/* quand on porte quelqu'un, le plan le dit */
+#plan svg.porte{cursor:grabbing;}
+#plan svg .pt{cursor:grab;}
+
+.astuce{
+    color:var(--dim);font-size:.85em;line-height:1.4;margin-top:6px;
+    border-left:2px solid var(--line);padding-left:7px;
+}
+
+/* ---------- le bouton micro ---------- */
+.bt-mini{
+    border:1px solid var(--line);padding:1px 9px;color:var(--dim);
+    cursor:pointer;user-select:none;letter-spacing:.1em;font-size:.9em;
+}
+.bt-mini:hover{color:var(--ink);border-color:var(--dim);}
+.bt-mini.on{color:var(--ink);border-color:var(--ink);}
+
+/* ---------- le calque des effets ---------- */
+#effets{
+    position:absolute;inset:0;z-index:30;pointer-events:none;overflow:hidden;
+}
+.part{
+    position:absolute;top:0;left:0;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;
+    border-radius:50%;background:var(--ink);
+    box-shadow:0 0 7px 2px var(--ink);
+    will-change:transform,opacity;
+}
+.part.moins{
+    background:var(--dim);box-shadow:0 0 5px 1px var(--dim);
+    width:5px;height:5px;margin:-2.5px 0 0 -2.5px;
+}
+.pop{
+    position:absolute;transform:translateY(0);
+    font-family:var(--mono);font-size:11px;font-weight:600;
+    letter-spacing:.04em;white-space:nowrap;
+    text-shadow:0 0 6px var(--bg),0 0 3px var(--bg);
+    will-change:transform,opacity;
+}
+.pop.plus{color:var(--ink);}
+.pop.moins{color:var(--dim);}
+.pop.perdu{color:var(--mal);}
+
+/* ---------- les bulles de l'equipage ---------- */
+.bulle{
+    position:absolute;transform:translate(-50%,-100%);
+    max-width:230px;padding:5px 9px;
+    background:var(--panel2);border:1px solid var(--vie);
+    color:var(--vie);font-family:var(--mono);font-size:11.5px;line-height:1.35;
+    box-shadow:0 8px 20px -10px #000;
+}
+.bulle::after{
+    content:"";position:absolute;left:50%;bottom:-5px;margin-left:-4px;
+    width:8px;height:8px;background:var(--panel2);
+    border-right:1px solid var(--vie);border-bottom:1px solid var(--vie);
+    transform:rotate(45deg);
+}
+.bulle.mal{border-color:var(--mal);color:var(--mal);}
+.bulle.mal::after{border-color:var(--mal);}
+.bulle.bien{border-color:var(--attn);color:var(--attn);}
+.bulle.bien::after{border-color:var(--attn);}

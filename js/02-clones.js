@@ -141,11 +141,16 @@ function etatClone(c) {
     return { k: "ok", n: "Valide" };
 }
 
-/* Le nom du poste, tel qu'il s'affiche partout. */
+/* Le nom du poste, tel qu'il s'affiche partout : le verbe, puis le lieu. */
+var VERBE = {
+    travail: "", nettoyage: "Nettoie ", reparation: "Repare ",
+    defense: "Defend ", attaque: "Attaque "
+};
+
 function nomPoste(p) {
     if (!p || p.type === "libre") return "Libre";
-    if (p.type === "entretien") return "Entretien";
     if (p.type === "repos") return "Repos";
     var s = salleParId(p.id);
-    return s ? s.nom : "Libre";
+    if (!s) return "Libre";
+    return (VERBE[p.type] || "") + s.nom;
 }

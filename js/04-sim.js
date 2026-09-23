@@ -15,10 +15,9 @@ var CORR_Y = 165;   /* la coursive centrale du plan */
 /* ---- OU SE TIENT UN CLONE ---- */
 function salleDuPoste(c) {
     var p = c.poste;
-    if (p.type === "salle") return salleParId(p.id);
     if (p.type === "repos") return salleParId("vie");
-    if (p.type === "entretien") return V.chantier ? salleParId(V.chantier) : salleParId("stockage");
-    return null;
+    if (p.type === "libre") return null;
+    return salleParId(p.id);
 }
 
 function placerAuPoste(c, immediat) {
@@ -53,19 +52,52 @@ function marcher(c, dt) {
     c.y += dy / d * vit;
 }
 
-/* ---- AJOUTER / RETIRER UNE RESERVE, SANS JAMAIS DEPASSER LA CUVE ---- */
-function ajoute(k, v) {
-    V.res[k] = clamp(V.res[k] + v, 0, CFG.CAP[k]);
+/* ---- LE GRAND LIVRE DU PAS ----
+   Chaque mouvement de reserve est note avec sa provenance. L'ecran vide ce
+   livre a chaque image : c'est lui qui lance les traits lumineux depuis la
+   salle vers la jauge, et qui fait apparaitre les chiffres. */
+function noteFlux(src, k, v) {
+    if (!src) src = "bord";
+    if (!V.flux[src]) V.flux[src] = {};
+    V.flux[src][k] = (V.flux[src][k] || 0) + v;
+}
+
+/* ---- AJOUTER / RETIRER UNE RESERVE, SANS JAMAIS DEPASSER LA CUVE ----
+   Ce qui deborde d'une reserve pleine est PERDU, et on le dit : remplir
+   une cuve deja pleine, c'est jeter ce qu'on vient de produire. */
+function ajoute(k, v, src) {
+    if (!isFinite(v)) return;
+    if (v === 0) return;
+    var avant = V.res[k];
+    var apres = avant + v;
+    if (apres > CFG.CAP[k]) {
+        V.perte[k] = (V.perte[k] || 0) + (apres - CFG.CAP[k]);
+        apres = CFG.CAP[k];
+    }
+    if (apres < 0) apres = 0;
+    V.res[k] = apres;
+    noteFlux(src, k, apres - avant);
 }
 
 /* Retire ce qu'on peut et dit quelle FRACTION on a reellement eue.
    C'est ce qui permet a une ferme de tourner au ralenti quand l'eau
    manque, au lieu de s'arreter net ou de produire a credit. */
-function retire(k, v) {
+function retire(k, v, src) {
+    /* GARDE-FOU. Une constante oubliee dans 00-config.js rendait v indefini,
+       donc NaN, et le NaN contaminait silencieusement la reserve ET
+       l'integrite de la salle. Mieux vaut ne rien faire et le dire. */
+    if (!isFinite(v)) {
+        if (!V.alertes["nan_" + k]) {
+            V.alertes["nan_" + k] = true;
+            logMsg("Anomalie de calcul sur " + k + " (" + (src || "bord") + ").", "mal");
+        }
+        return 0;
+    }
     if (v <= 0) return 1;
     var dispo = V.res[k];
-    if (dispo >= v) { V.res[k] = dispo - v; return 1; }
+    if (dispo >= v) { V.res[k] = dispo - v; noteFlux(src, k, -v); return 1; }
     V.res[k] = 0;
+    if (dispo > 0) noteFlux(src, k, -dispo);
     return dispo / v;
 }
 
@@ -102,6 +134,14 @@ function simPas(dtSec) {
             if (!eq.length) { s.veut = false; continue; }
             var r = 0;
             for (n = 0; n < eq.length; n++) r += rendementClone(eq[n], s.comp);
+            /* UNE SALLE SALE REND MOINS, mais pas tout de suite : les
+               premiers points de crasse sont gratuits. Sans ce seuil, il
+               faudrait un homme a la serpilliere des le premier jour, et il
+               n'y en a pas de libre. */
+            if (s.salete > CFG.SALETE_SEUIL) {
+                r *= (1 - ((s.salete - CFG.SALETE_SEUIL) / (100 - CFG.SALETE_SEUIL))
+                          * CFG.SALETE_MALUS);
+            }
             s.rendement = clamp(r, 0, s.postes);
             s.veut = s.rendement > 0.02;
         }
@@ -150,18 +190,18 @@ function simPas(dtSec) {
        --------------------------------------------------------------- */
     var ferme = salleParId("ferme");
     if (ferme.active) {
-        var fr = retire("eau", RECETTES.ferme.cout.eau * ferme.rendement * dj);
-        ajoute("vivres", RECETTES.ferme.rend.vivres * ferme.rendement * fr * dj);
-        ajoute("oxy", RECETTES.ferme.rend.oxy * ferme.rendement * fr * dj);
+        var fr = retire("eau", RECETTES.ferme.cout.eau * ferme.rendement * dj, "ferme");
+        ajoute("vivres", RECETTES.ferme.rend.vivres * ferme.rendement * fr * dj, "ferme");
+        ajoute("oxy", RECETTES.ferme.rend.oxy * ferme.rendement * fr * dj, "ferme");
     }
 
     var recy = salleParId("recyclage");
     if (recy.active) {
         /* l'eau d'abord : la boucle grise tourne meme quand il n'y a pas
            un gramme de dechet solide a broyer */
-        ajoute("eau", RECETTES.recyclage.rend.eau * recy.rendement * dj);
-        var rr = retire("dechets", RECETTES.recyclage.cout.dechets * recy.rendement * dj);
-        ajoute("mat", RECETTES.recyclage.rend.mat * recy.rendement * rr * dj);
+        ajoute("eau", RECETTES.recyclage.rend.eau * recy.rendement * dj, "recyclage");
+        var rr = retire("dechets", RECETTES.recyclage.cout.dechets * recy.rendement * dj, "recyclage");
+        ajoute("mat", RECETTES.recyclage.rend.mat * recy.rendement * rr * dj, "recyclage");
     }
 
     /* le moteur ne pousse que si quelqu'un tient le cap */
@@ -175,36 +215,63 @@ function simPas(dtSec) {
     }
 
     /* ---------------------------------------------------------------
-       4. L'USURE, ET CEUX QUI REPARENT
+       4. LA SALETE, L'USURE, ET CEUX QU'ON Y A MIS
+       Reparer et nettoyer ne sont plus des postes flottants : on envoie
+       quelqu'un DANS une salle, et il s'occupe de CETTE salle-la.
        --------------------------------------------------------------- */
     var menage = controle.active ? 0.74 : 1;   /* un cap tenu menage le materiel */
+    var nett, repa, force, gain, cout, frac, ote;
+
     for (i = 0; i < V.salles.length; i++) {
         s = V.salles[i];
         if (s.verrouille) continue;
-        s.integrite -= ((s.active && !s.passive) ? CFG.USURE_JOUR : CFG.USURE_ARRET) * menage * dj;
+
+        /* elle se salit */
+        s.salete = clamp(s.salete + (s.active ? CFG.SALETE_JOUR : CFG.SALETE_ARRET) * dj, 0, 100);
+
+        /* on la nettoie : ce qu'on ramasse part a la cuve a dechets, ou le
+           recyclage en tirera de la matiere. Rien ne se perd. */
+        nett = aLaSalle(s.id, "nettoyage");
+        if (nett.length && s.salete > 0) {
+            force = 0;
+            for (n = 0; n < nett.length; n++) force += rendementClone(nett[n], "chimie");
+            ote = Math.min(s.salete, force * CFG.NETTOIE_JOUR * dj);
+            s.salete -= ote;
+            ajoute("dechets", ote * CFG.SALETE_VERS_DECHETS, s.id);
+        }
+
+        /* ELLE S'USE, MAIS MOINS SI QUELQU'UN Y TRAVAILLE. Un operateur
+           graisse, resserre et ecoute sa machine sans qu'on le lui demande :
+           c'est la salle abandonnee qui se degrade vraiment. Sans cette
+           regle, il faudrait un reparateur a plein temps des le premier
+           jour - et avec quatre corps, il n'y en a pas. */
+        var taux = (s.active && !s.passive) ? CFG.USURE_JOUR : CFG.USURE_ARRET;
+        /* une salle sans poste (la salle de vie, le stockage) n'a pas de
+           machinerie a user : ceux qui y vivent l'entretiennent d'eux-memes */
+        if (s.postes === 0 || affectesA(s.id).length) taux *= CFG.USURE_TENUE;
+        s.integrite -= taux * menage * dj;
         if (s.integrite < 0) s.integrite = 0;
+
+        /* on la repare, et ca coute de la matiere */
+        repa = aLaSalle(s.id, "reparation");
+        if (repa.length && s.integrite < 100) {
+            force = 0;
+            for (n = 0; n < repa.length; n++) force += rendementClone(repa[n], "mecanique");
+            if (controle.active) force *= 1.15;
+            gain = Math.min(force * CFG.REPARE_JOUR * dj, 100 - s.integrite);
+            cout = gain * CFG.REPARE_MAT;
+            frac = retire("mat", cout, s.id);
+            s.integrite = clamp(s.integrite + gain * frac, 0, 100);
+            if (frac < 0.999) {
+                alerte("nomat", "Il n'y a plus de materiaux : les reparations s'arretent.", "mal");
+            } else { alerteLevee("nomat"); }
+        }
+
         if (s.integrite < CFG.PANNE) {
-            alerte("panne_" + s.id, s.nom + " est hors service : il faut la reparer.", "mal");
+            alerte("panne_" + s.id, s.nom + " est hors service : envoyez quelqu'un la reparer.", "mal");
         } else {
             alerteLevee("panne_" + s.id);
         }
-    }
-
-    /* la salle la plus abimee devient le chantier */
-    var pire = null;
-    for (i = 0; i < V.salles.length; i++) {
-        s = V.salles[i];
-        if (s.verrouille || s.integrite >= 99.5) continue;
-        if (!pire || s.integrite < pire.integrite) pire = s;
-    }
-    V.chantier = pire ? pire.id : null;
-
-    var equipe = auPoste("entretien");
-    if (pire && equipe.length) {
-        var force = 0;
-        for (i = 0; i < equipe.length; i++) force += rendementClone(equipe[i], "mecanique");
-        if (controle.active) force *= 1.15;
-        pire.integrite = clamp(pire.integrite + force * CFG.REPARE_JOUR * dj, 0, 100);
     }
 
     /* ---------------------------------------------------------------
@@ -223,8 +290,8 @@ function simPas(dtSec) {
     else alerteLevee("sale");
 
     /* ce que l'equipage respire et boit */
-    var fOxy = retire("oxy", CFG.OXY_PAR_CLONE * nv * dj);
-    var fEau = retire("eau", CFG.EAU_PAR_CLONE * nv * dj);
+    var fOxy = retire("oxy", CFG.OXY_PAR_CLONE * nv * dj, "bord");
+    var fEau = retire("eau", CFG.EAU_PAR_CLONE * nv * dj, "bord");
     if (fOxy < 0.999) alerte("oxy", "L'oxygene est epuise. On etouffe dans les coursives.", "mal");
     else alerteLevee("oxy");
     if (fEau < 0.999) alerte("eau", "Plus d'eau potable a bord.", "mal");
@@ -239,15 +306,15 @@ function simPas(dtSec) {
         /* faim */
         c.faim = clamp(c.faim + CFG.FAIM_JOUR * dj, 0, 100);
         if (c.faim > CFG.FAIM_SEUIL_REPAS && vie.active && V.res.vivres >= CFG.VIVRES_REPAS) {
-            V.res.vivres -= CFG.VIVRES_REPAS;
+            retire("vivres", CFG.VIVRES_REPAS, "vie");
             c.faim = clamp(c.faim - CFG.FAIM_REPAS, 0, 100);
-            ajoute("dechets", 0.4);
+            ajoute("dechets", 0.4, "vie");
         }
 
         /* fatigue */
         var df;
         if (c.poste.type === "repos") df = vie.active ? CFG.FATIGUE_REPOS : -8;
-        else if (c.poste.type === "libre") df = CFG.FATIGUE_LIBRE;
+        else if (c.poste.type === "libre" || c.poste.type === "defense") df = CFG.FATIGUE_LIBRE;
         else df = CFG.FATIGUE_TRAVAIL;
         c.fatigue = clamp(c.fatigue + df * dj, 0, 100);
 
@@ -283,7 +350,7 @@ function simPas(dtSec) {
                     : (c.faim > CFG.FAIM_CRITIQUE) ? "faim"
                     : (insalubre) ? "maladie" : "epuisement";
             c.poste = { type: "libre", id: null };
-            ajoute("dechets", 9);
+            ajoute("dechets", 9, "vie");
             deuil++;
             logMsg(c.nomComplet + " est mort (" + c.cause + "). Le corps part au recyclage.", "mal");
         }
@@ -300,7 +367,7 @@ function simPas(dtSec) {
 
     /* les dechets du jour */
     var nSalles = V.salles.filter(function (x) { return x.active; }).length;
-    ajoute("dechets", (CFG.DECHET_PAR_CLONE * nv + CFG.DECHET_PAR_SALLE * nSalles) * dj);
+    ajoute("dechets", (CFG.DECHET_PAR_CLONE * nv + CFG.DECHET_PAR_SALLE * nSalles) * dj, "bord");
 
     /* ---------------------------------------------------------------
        6. LA CUVE
@@ -347,19 +414,26 @@ function lancerDecantation() {
     return null;
 }
 
-/* ================= AFFECTER ================= */
+/* ================= DONNER UN ORDRE =================
+   Un ordre vise une salle, sauf "repos" et "libre". On refuse un poste de
+   travail deja plein : c'est la seule regle qui bloque. */
 function affecter(cloneId, type, salleId) {
     var c = cloneParId(cloneId);
-    if (!c || !c.vivant) return;
-    if (type === "salle") {
-        var s = salleParId(salleId);
-        if (!s || s.verrouille || s.postes === 0) return;
-        if (affectesA(salleId).length >= s.postes &&
-            !(c.poste.type === "salle" && c.poste.id === salleId)) return;
-        c.poste = { type: "salle", id: salleId };
-    } else {
+    if (!c || !c.vivant) return false;
+
+    if (type === "libre" || type === "repos") {
         c.poste = { type: type, id: null };
+    } else {
+        var s = salleParId(salleId);
+        if (!s || s.verrouille) return false;
+        if (type === "travail") {
+            if (s.postes === 0) return false;
+            var deja = (c.poste.type === "travail" && c.poste.id === salleId);
+            if (!deja && affectesA(salleId).length >= s.postes) return false;
+        }
+        c.poste = { type: type, id: salleId };
     }
     placerAuPoste(c, false);
     if (typeof rafraichir === "function") rafraichir();
+    return true;
 }

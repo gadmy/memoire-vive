@@ -14,12 +14,30 @@ les gens**. Pas d'extraterrestres, pas de carte des étoiles, pas de
 construction, pas de sorties. Le but est de savoir tout de suite si le noyau est
 tendu ou plat.
 
+**On prend les gens à la main** : un point bleu se soulève à la souris, se
+promène sur le plan et se lâche dans une salle — un menu demande alors ce qu'il
+doit y faire. Ce qui est impossible est grisé et dit pourquoi.
+
+| Ordre | Ce qu'il fait |
+|---|---|
+| **Travailler ici** | tient un poste et fait produire la salle |
+| **Nettoyer / recycler** | retire la saleté et la porte à la cuve à déchets |
+| **Réparer** | rend de l'intégrité, consomme des matériaux |
+| **Défendre** | reste dans la salle sans y travailler |
+| **Attaquer** | grisé tant qu'il n'y a pas d'hostiles |
+
+Deuxième chemin pour les mêmes gestes : dans la fiche d'une salle, un **poste
+vide s'ouvre d'un clic** sur la liste de ceux qui ne font rien, classée par ce
+que chacun vaut dans cette salle-là.
+
 - **Neuf salles** qui réclament des postes, du courant et des réserves.
 - **Les machines produisent toute l'énergie**, tout le reste en consomme. Quand
   l'offre ne suffit plus, les salles tombent par ordre de priorité — le moteur
   d'abord, la ferme en dernier. La salle de vie ne se coupe jamais.
-- **Les salles s'usent.** Sous 12 % d'intégrité, elles ne redémarrent plus. Un
-  clone à l'entretien répare la plus abîmée — donc un clone de moins ailleurs.
+- **Les salles s'usent**, et se salissent. Sous 12 % d'intégrité elles ne
+  redémarrent plus ; au-delà de 40 de saleté elles rendent jusqu'à 30 % de
+  moins. Mais **une salle où quelqu'un travaille s'entretient d'elle-même** :
+  c'est la salle abandonnée qui se dégrade vraiment.
 - **Le cycle se boucle** : la ferme boit de l'eau et rend vivres et oxygène ; le
   recyclage rend l'eau grise et tire des matériaux des déchets. Les corps font
   des déchets rien qu'en vivant, et les morts aussi.
@@ -30,8 +48,20 @@ tendu ou plat.
   nombreux — et les matériaux ne viennent que du recyclage.
 - **Deux fins** : le premier relais atteint, ou l'extinction.
 
+**Le vaisseau respire, et ça se voit.** Chaque fois qu'une salle produit, un
+trait lumineux part d'elle, longe la coursive et va se jeter dans la jauge
+concernée. Ce qui se consomme fait le trajet inverse, en plus sombre. Des
+chiffres popent dans la salle au départ et sur la jauge à l'arrivée — et en
+rouge quand une réserve pleine déborde, parce que remplir une cuve pleine c'est
+jeter ce qu'on vient de produire.
+
+**L'équipage parle.** Des banalités quand tout va, de l'incompréhension envers
+« la machine » quand une salle est sale, vide ou cassée — ils ne savent pas
+qu'un esprit humain les dirige — et de l'admiration quand le bord est propre.
+Deux bulles au maximum, et un bouton **MICRO** pour les couper.
+
 Commandes : **Espace** pause, **1 2 3** vitesses. Clic sur une salle ou sur un
-point pour ouvrir sa fiche ; les postes s'attribuent depuis la fiche du clone.
+point pour ouvrir sa fiche ; glisser un point pour lui donner un ordre.
 
 ## Les fichiers
 
@@ -47,6 +77,7 @@ point pour ouvrir sa fiche ; les postes s'attribuent depuis la fiche du clone.
 | `js/05-plan.js` | 196 | le plan du vaisseau en SVG |
 | `js/06-panneaux.js` | 316 | les cartes, les jauges, l'équipage, le journal |
 | `js/07-boucle.js` | 160 | le menu, la boucle à pas fixe, les deux fins |
+| `js/08-effets.js` | 300 | les traits lumineux, les chiffres qui popent, les bulles |
 
 Des `<script src>` classiques, pas des modules ES : portée globale partagée, et
 le jeu s'ouvre sans serveur. L'ordre des balises dans `index.html` **est**
@@ -71,5 +102,13 @@ et sort un tableau toutes les vingt journées. Il a trouvé huit naufrages avant
 que le jeu tienne : la salle de vie coupée en premier (tout le monde mourait de
 faim avec 150 vivres en réserve), l'épuisement simultané des quatre, le cycle de
 l'eau qui ne se refermait pas, l'usure qui emportait les machines, le recyclage
-jamais tenu. Le relais est maintenant atteint au jour 1651 **avec un pilote
+jamais tenu. Le relais est maintenant atteint au jour 408 **avec un pilote
 médiocre** — un joueur attentif ira beaucoup plus vite.
+
+Il a aussi trouvé deux bugs strictement invisibles à l'œil : le pilote appelait
+un ordre qui n'existait plus (donc il ne réparait ni ne nettoyait, et plusieurs
+réglages ont été décidés sur un test faux), et la constante `REPARE_MAT`
+n'avait jamais été écrite dans la config — elle valait `undefined`, ce qui
+mettait l'intégrité des salles **et** la réserve de matériaux à `NaN`. La
+fonction `retire()` refuse désormais toute valeur non finie et le dit dans le
+journal de bord.

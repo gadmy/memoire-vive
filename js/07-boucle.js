@@ -17,6 +17,11 @@ var PAS_MAX = 900;   /* garde-fou : jamais plus de 900 pas dans une image */
 function boot() {
     brancherTouches();
     brancherVitesse();
+    $("#micro").addEventListener("click", basculerMicro);
+    /* un clic ailleurs referme le petit menu d'ordres */
+    window.addEventListener("mousedown", function (e) {
+        if (menuOuvert && !menuOuvert.contains(e.target)) fermerMenu();
+    }, true);
     montrerMenu();
     requestAnimationFrame(boucle);
 }
@@ -46,6 +51,7 @@ function demarrer(graine) {
     nouvellePartie(graine);
     $("#ecran").style.display = "none";
     construirePlan();
+    initEffets();
     rafraichir();
     majJournal();
     acc = 0;
@@ -56,6 +62,7 @@ function demarrer(graine) {
 function finPartie(raison) {
     if (etat === "fin") return;
     etat = "fin";
+    fermerMenu();
     V.fin = raison;
     V.vitesse = 0;
 
@@ -146,6 +153,7 @@ function boucle(t) {
     majPlan();
     majBarre();
     majJauges();
+    majEffets(dt);
 
     /* ce qui se relit quatre fois par seconde : inutile plus souvent,
        et cela laisse les clics passer */

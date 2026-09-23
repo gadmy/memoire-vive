@@ -42,6 +42,13 @@ function construirePlan() {
     planSvg.appendChild(couchePoints);
 
     hote.appendChild(planSvg);
+
+    planSvg.addEventListener("mousemove", deplacerPorte);
+    planSvg.addEventListener("mouseup", lacher);
+    planSvg.addEventListener("mouseleave", function () {
+        if (porte) { porte = null; planSvg.classList.remove("porte"); majPoints(); majPlan(); }
+    });
+
     majPoints();
 }
 
@@ -83,6 +90,13 @@ function construireSalle(s) {
         g.appendChild(jauge);
         noeuds.jauge = jauge;
 
+        var saleT = svgel("text", {
+            x: s.x + s.w - 8, y: s.y + s.h - 18, fill: "var(--attn)",
+            "font-size": 10, "text-anchor": "end", opacity: 0
+        });
+        g.appendChild(saleT);
+        noeuds.sale = saleT;
+
         if (s.postes > 0) {
             var pT = svgel("text", {
                 x: s.x + s.w - 8, y: s.y + 16, fill: "var(--dim)",
@@ -102,6 +116,109 @@ function construireSalle(s) {
     return g;
 }
 
+/* ---- QUELLE SALLE SOUS CE POINT DU PLAN ---- */
+function salleSous(px, py) {
+    var i, s;
+    for (i = 0; i < V.salles.length; i++) {
+        s = V.salles[i];
+        if (px >= s.x && px <= s.x + s.w && py >= s.y && py <= s.y + s.h) return s;
+    }
+    return null;
+}
+
+/* Les coordonnees du plan pour un evenement souris. */
+function planXY(ev) {
+    var r = planSvg.getBoundingClientRect();
+    return {
+        x: (ev.clientX - r.left) / r.width * 564,
+        y: (ev.clientY - r.top) / r.height * 348
+    };
+}
+
+/* ================= SOULEVER QUELQU'UN =================
+   On attrape un point, on le promene, on le lache dans une salle : un menu
+   demande alors ce qu'il doit y faire. Tant qu'on tient le point, la salle
+   survolee s'allume - et celles qui n'accepteraient rien restent eteintes. */
+var porte = null;   /* { id, x, y, survol } */
+
+function prendre(id, ev) {
+    if (etat !== "jeu") return;
+    var c = cloneParId(id);
+    if (!c || !c.vivant) return;
+    var p = planXY(ev);
+    porte = { id: id, x: p.x, y: p.y, survol: null, depart: { x: c.x, y: c.y } };
+    V.selection = { type: "clone", id: id };
+    planSvg.classList.add("porte");
+    rafraichir();
+}
+
+function deplacerPorte(ev) {
+    if (!porte) return;
+    var p = planXY(ev);
+    porte.x = p.x; porte.y = p.y;
+    var s = salleSous(p.x, p.y);
+    porte.survol = (s && !s.verrouille) ? s.id : null;
+    majPoints();
+    majPlan();
+}
+
+function lacher(ev) {
+    if (!porte) return;
+    var p = planXY(ev);
+    var s = salleSous(p.x, p.y);
+    var id = porte.id;
+    porte = null;
+    planSvg.classList.remove("porte");
+    if (s && !s.verrouille) ouvrirMenuOrdre(id, s, ev.clientX, ev.clientY);
+    else { majPoints(); majPlan(); }
+}
+
+/* ---- LE PETIT MENU D'ORDRES ---- */
+function ouvrirMenuOrdre(cloneId, s, ecx, ecy) {
+    fermerMenu();
+    var c = cloneParId(cloneId);
+    if (!c) return;
+
+    var m = bal("div", "ordmenu");
+    var h = '<div class="ordhd">' + c.prenom + " " + c.nom
+          + '<span>' + s.nom + "</span></div>";
+    var liste = ordresPour(s), i, o;
+    for (i = 0; i < liste.length; i++) {
+        o = liste[i];
+        h += '<div class="ord' + (o.raison ? " no" : "") + '"'
+           + (o.raison ? "" : ' data-k="' + o.k + '"') + ">"
+           + '<span class="on">' + o.n + "</span>"
+           + '<span class="od">' + (o.raison ? o.raison : o.d) + "</span></div>";
+    }
+    h += '<div class="ord" data-k="annule"><span class="on">Laisser tranquille</span>'
+       + '<span class="od">Il reprend ses coursives.</span></div>';
+    m.innerHTML = h;
+    document.body.appendChild(m);
+
+    /* le menu suit la souris mais ne sort jamais de la fenetre */
+    var r = m.getBoundingClientRect();
+    var x = Math.min(ecx + 8, window.innerWidth - r.width - 10);
+    var y = Math.min(ecy + 8, window.innerHeight - r.height - 10);
+    m.style.left = Math.max(8, x) + "px";
+    m.style.top = Math.max(8, y) + "px";
+
+    $$(".ordmenu .ord[data-k]").forEach(function (el) {
+        el.addEventListener("click", function () {
+            var k = el.dataset.k;
+            if (k === "annule") affecter(cloneId, "libre", null);
+            else affecter(cloneId, k, s.id);
+            fermerMenu();
+        });
+    });
+    menuOuvert = m;
+}
+
+var menuOuvert = null;
+function fermerMenu() {
+    if (menuOuvert && menuOuvert.parentNode) menuOuvert.parentNode.removeChild(menuOuvert);
+    menuOuvert = null;
+}
+
 /* ---- RAFRAICHIR L'ETAT DES SALLES ---- */
 function majPlan() {
     var i, s, n, sel = V.selection;
@@ -111,6 +228,7 @@ function majPlan() {
         if (!n) continue;
 
         var choisie = (sel && sel.type === "salle" && sel.id === s.id);
+        var vise = (porte && porte.survol === s.id);
 
         if (s.verrouille) {
             n.cadre.setAttribute("stroke", "var(--line)");
@@ -125,8 +243,9 @@ function majPlan() {
         else if (s.active) { couleur = "var(--ink)"; mot = s.postes > 0 ? "EN MARCHE" : ""; }
         else if (s.postes > 0) { couleur = "var(--dim)"; mot = "SANS PERSONNEL"; }
 
-        n.cadre.setAttribute("stroke", choisie ? "var(--ink)" : couleur);
-        n.cadre.setAttribute("stroke-width", choisie ? 2.2 : 1.2);
+        n.cadre.setAttribute("stroke", (choisie || vise) ? "var(--ink)" : couleur);
+        n.cadre.setAttribute("stroke-width", vise ? 3 : (choisie ? 2.2 : 1.2));
+        n.cadre.setAttribute("fill", vise ? "var(--panel2)" : "var(--panel)");
         if (tirets) n.cadre.setAttribute("stroke-dasharray", tirets);
         else n.cadre.removeAttribute("stroke-dasharray");
         n.nom.setAttribute("fill", s.active ? "var(--ink)" : "var(--dim)");
@@ -134,6 +253,10 @@ function majPlan() {
         if (n.etat) {
             n.etat.textContent = mot;
             n.etat.setAttribute("fill", couleur === "var(--ink)" ? "var(--dim)" : couleur);
+        }
+        if (n.sale) {
+            n.sale.setAttribute("opacity", s.salete > 22 ? 1 : 0);
+            n.sale.textContent = s.salete > 70 ? "CRASSE" : "SALE";
         }
         if (n.jauge) {
             var large = (s.w - 18) * (s.integrite / 100);
@@ -161,10 +284,10 @@ function majPoints() {
         p = svgel("circle", { r: 4.6, cx: c.x, cy: c.y, class: "pt" });
         p.style.cursor = "pointer";
         (function (id) {
-            p.addEventListener("click", function (ev) {
+            p.addEventListener("mousedown", function (ev) {
+                ev.preventDefault();
                 ev.stopPropagation();
-                V.selection = { type: "clone", id: id };
-                rafraichir();
+                prendre(id, ev);
             });
         })(c.id);
         couchePoints.appendChild(p);
@@ -178,8 +301,9 @@ function majPoints() {
 
         if (!c.vivant) { p.setAttribute("opacity", 0); continue; }
 
-        p.setAttribute("cx", c.x.toFixed(1));
-        p.setAttribute("cy", c.y.toFixed(1));
+        var tenu = (porte && porte.id === c.id);
+        p.setAttribute("cx", (tenu ? porte.x : c.x).toFixed(1));
+        p.setAttribute("cy", (tenu ? porte.y : c.y).toFixed(1));
         p.setAttribute("opacity", 1);
 
         var choisi = (sel && sel.type === "clone" && sel.id === c.id);
@@ -191,6 +315,6 @@ function majPoints() {
         p.setAttribute("fill", oisif ? "var(--bg)" : teinte);
         p.setAttribute("stroke", teinte);
         p.setAttribute("stroke-width", oisif ? 1.6 : 0);
-        p.setAttribute("r", choisi ? 6.4 : 4.6);
+        p.setAttribute("r", tenu ? 7.6 : (choisi ? 6.4 : 4.6));
     }
 }

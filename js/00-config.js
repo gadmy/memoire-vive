@@ -6,7 +6,7 @@
    dans ce fichier qu'on vient la tourner.
    ================================================================ */
 
-var VERSION = 1;
+var VERSION = 2;
 document.title = "Memoire Vive v" + VERSION;
 
 /* ---- LE TEMPS ----
@@ -52,10 +52,23 @@ var CFG = {
     MORAL_MALHEUR: -5.0,  /* faim, fatigue ou maladie */
     MORAL_DEUIL: -14,     /* d'un coup, a chaque mort */
 
+    /* ---- LA SALETE ----
+       Une salle qui tourne se salit, et une salle sale rend moins. Un clone
+       envoye au NETTOYAGE la debarrasse et porte ce qu'il ramasse a la cuve
+       a dechets, ou le recyclage en tirera de la matiere. */
+    SALETE_JOUR: 0.30,     /* ce qu'une salle en marche se salit par jour */
+    SALETE_ARRET: 0.08,
+    SALETE_SEUIL: 40,     /* en dessous, la crasse ne coute rien : on a le temps */
+    SALETE_MALUS: 0.30,   /* a 100 de salete, la salle rend 40 % de moins */
+    NETTOIE_JOUR: 26,     /* points de salete retires par jour, a plein */
+    SALETE_VERS_DECHETS: 0.14,  /* ce qu'un point de salete pese dans la cuve */
+
     /* ---- L'USURE ---- */
-    USURE_JOUR: 0.35,     /* une salle en marche perd tant d'integrite par jour */
-    USURE_ARRET: 0.25,    /* une salle a l'arret s'abime aussi, plus lentement */
-    REPARE_JOUR: 11.0,     /* ce qu'un clone a l'entretien rend par jour, a plein */
+    USURE_JOUR: 0.35,
+    USURE_TENUE: 0.32,   /* une salle ou quelqu'un travaille s'use tant de fois moins */     /* une salle en marche perd tant d'integrite par jour */
+    USURE_ARRET: 0.06,    /* une salle en veille ne pourrit pas : elle attend */
+    REPARE_JOUR: 11.0,    /* points d'integrite rendus par jour, a plein */
+    REPARE_MAT: 0.18,     /* materiaux consommes par point d'integrite rendu */
     PANNE: 12,            /* sous cette integrite, la salle ne demarre plus */
 
     /* ---- L'INSALUBRITE ---- */
@@ -64,6 +77,13 @@ var CFG = {
     /* ---- LA DECANTATION ---- */
     NAISSANCE_MAT: 80,   /* materiaux engages d'un coup */
     NAISSANCE_JOURS: 10,  /* duree de la cuve */
+
+    /* ---- CE QUE L'EQUIPAGE DIT ----
+       Ils ne savent pas qu'un esprit humain les dirige. Ils parlent a la
+       machine, et la machine, c'est vous. Deux bulles au maximum a l'ecran. */
+    BULLE_MAX: 2,
+    BULLE_DUREE: 5.5,     /* secondes reelles */
+    BULLE_INTER: 6.0,     /* delai avant d'essayer d'en sortir une autre */
 
     /* ---- LES RESERVES AU DEPART ---- */
     DEPART: { eau: 330, oxy: 280, vivres: 150, mat: 190, dechets: 12 },
@@ -115,7 +135,7 @@ var SALLES = [
     {
         id: "ferme", nom: "Ferme", x: 412, y: 42, w: 112, h: 100,
         postes: 2, en: 2.0, prio: 5, comp: "botanique",
-        role: "Boit 2 eau par jour et rend 4 vivres et 6 oxygene. "
+        role: "Boit 2 eau par jour et rend 4 vivres et 9 oxygene. "
             + "C'est elle qui fait respirer le bord.",
         icone: "ferme"
     },
@@ -165,12 +185,45 @@ var SALLES = [
 var RECETTES = {
     machines:  { rend: { energie: 12.0 } },
     recyclage: { cout: { dechets: 7.0 }, rend: { mat: 3.5, eau: 9.0 } },
-    ferme:     { cout: { eau: 2.0 },     rend: { vivres: 4.0, oxy: 6.0 } }
+    ferme:     { cout: { eau: 2.0 },     rend: { vivres: 4.0, oxy: 9.0 } }
 };
 
-/* ---- LES POSTES QUI NE SONT PAS DES SALLES ---- */
-var POSTES_LIBRES = [
-    { k: "entretien", n: "Entretien", d: "Repare en continu la salle la plus abimee." },
-    { k: "repos",     n: "Repos",     d: "Dort en salle de vie. La fatigue tombe vite." },
-    { k: "libre",     n: "Libre",     d: "Erre dans les coursives. Ne produit rien." }
+/* ================= LES ORDRES =================
+   Un ordre vise TOUJOURS une salle : on prend quelqu'un sur le plan, on le
+   lache dans une salle, et on choisit ce qu'il y fait. C'est la seule
+   grammaire du jeu.                                                      */
+var ORDRES = [
+    { k: "travail",    n: "Travailler ici",
+      d: "Tient un poste de la salle et la fait produire." },
+    { k: "nettoyage",  n: "Nettoyer / recycler",
+      d: "Retire la salete et la porte a la cuve a dechets." },
+    { k: "reparation", n: "Reparer",
+      d: "Rend de l'integrite. Consomme des materiaux." },
+    { k: "defense",    n: "Defendre",
+      d: "Reste dans la salle sans y travailler." },
+    { k: "attaque",    n: "Attaquer",
+      d: "S'en prend aux hostiles presents." }
 ];
+
+/* ---- LES DEUX ORDRES QUI NE VISENT PAS UNE SALLE ---- */
+var POSTES_LIBRES = [
+    { k: "repos", n: "Repos", d: "Dort en salle de vie. La fatigue tombe vite." },
+    { k: "libre", n: "Libre", d: "Erre dans les coursives. Ne produit rien." }
+];
+
+/* Quels ordres sont possibles dans cette salle, et pourquoi pas. */
+function ordresPour(s) {
+    var out = [], i, o, raison;
+    for (i = 0; i < ORDRES.length; i++) {
+        o = ORDRES[i];
+        raison = null;
+        if (s.verrouille) raison = "salle scellee";
+        else if (o.k === "travail" && s.postes === 0) raison = "aucun poste ici";
+        else if (o.k === "travail" && affectesA(s.id).length >= s.postes) raison = "postes pleins";
+        else if (o.k === "nettoyage" && s.salete < 1) raison = "deja propre";
+        else if (o.k === "reparation" && s.integrite > 99.5) raison = "rien a reparer";
+        else if (o.k === "attaque") raison = "aucun hostile";
+        out.push({ k: o.k, n: o.n, d: o.d, raison: raison });
+    }
+    return out;
+}

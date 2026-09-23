@@ -4,63 +4,66 @@
     MEMOIRE VIVE
     Jeu web vanilla JS, sans dependance ni outil de construction.
     index.html tient la page et ce suivi, css/mv.css la feuille de style,
-    js/*.js les sept morceaux du script, charges dans l'ordre.
+    js/*.js les huit morceaux du script, charges dans l'ordre.
     Pour jouer : ouvrir ce fichier. Aucun serveur n'est necessaire.
 
-    VERSION : 1
-    (la conversation en cours deviendra la v2 a la cloture : le numero ne
+    VERSION : 2
+    (la conversation en cours deviendra la v3 a la cloture : le numero ne
      bouge qu'au changement de conversation, jamais en cours de route)
 
     ================================================================
     CONVERSATION EN COURS - CE QUI VIENT D'ETRE FAIT
     ================================================================
 
-    LE JEU EXISTE ET SE JOUE. Premiere tranche jouable, volontairement
-    etroite : un seul ecran, le plan du vaisseau, et la seule chose qu'on y
-    fait est d'AFFECTER DES GENS. Pas d'extraterrestres, pas de carte des
-    etoiles, pas de construction, pas de sorties. Le but est de savoir tout
-    de suite si le noyau est tendu ou plat, avant de batir quoi que ce soit
-    par-dessus.
+    ON PREND LES GENS A LA MAIN. Un point bleu se SOULEVE a la souris, se
+    promene sur le plan, et se lache dans une salle : un petit menu demande
+    alors ce qu'il doit y faire - travailler, nettoyer, reparer, defendre, ou
+    attaquer. Ce qui est impossible est grise et dit pourquoi ("deja propre",
+    "rien a reparer", "aucun hostile"). Une fois l'ordre choisi, le clone part
+    de la ou on l'a pris et marche jusqu'a la salle. Deuxieme chemin, pour les
+    memes gestes : dans la fiche d'une salle, un poste vide s'ouvre d'un clic
+    sur la liste de ceux qui ne font rien, classee par ce que chacun VAUT dans
+    cette salle-la.
 
-    NEUF SALLES, QUATRE CLONES. Chaque salle reclame des postes, du courant
-    et des reserves. Les machines produisent toute l'energie ; tout le reste
-    en consomme. Quand la demande depasse l'offre, les salles tombent dans un
-    ordre de priorite fixe - le moteur d'abord, puisqu'il ne fait qu'avancer,
-    la ferme en dernier - et le journal le dit. La salle de vie, elle, ne se
-    coupe jamais : sans elle personne ne mange, et la partie serait perdue sur
-    une simple baisse de courant. Avec quatre corps pour neuf salles, on ne
-    peut pas tout tenir : c'est la le jeu.
+    LES ORDRES SONT DEVENUS DES ORDRES PAR SALLE. L'entretien flottant a
+    disparu : on ne repare plus "la salle la plus abimee", on envoie quelqu'un
+    reparer CELLE-CI. Reparer consomme des materiaux. Nettoyer retire la
+    salete et la porte a la cuve a dechets, ou le recyclage en tire de la
+    matiere - rien ne se perd. Defendre occupe la salle sans y travailler, et
+    attaquer attend ses hostiles.
 
-    LES SALLES S'USENT. Une salle en marche perd de l'integrite chaque jour,
-    et sous douze pour cent elle ne redemarre plus. Un clone mis a l'ENTRETIEN
-    repare en continu la plus abimee - donc un clone de moins en production.
-    Le controle, quand il est tenu, menage le materiel et accelere les
-    reparations ; sans lui le moteur pousse dans le vide.
+    LA SALETE, NOUVELLE PRESSION. Une salle qui tourne se salit. Les quarante
+    premiers points sont gratuits ; au-dela, elle rend jusqu'a 30 pour cent de
+    moins. C'est lent (0,30 par jour), donc c'est une corvee a placer, pas une
+    urgence permanente.
 
-    LE CYCLE DES RESERVES SE BOUCLE. La ferme boit de l'eau et rend vivres et
-    oxygene ; le recyclage avale les dechets et rend materiaux et eau ; les
-    corps produisent des dechets rien qu'en vivant, et les morts aussi. Au-dela
-    des trois quarts de la cuve, l'air devient malsain et tout le monde tombe
-    malade.
+    UNE SALLE TENUE S'ENTRETIENT SEULE. Un operateur graisse et resserre sans
+    qu'on le lui demande : une salle ou quelqu'un travaille s'use trois fois
+    moins, et une salle en veille ne pourrit plus. Sans cette regle il aurait
+    fallu un reparateur a plein temps des le premier jour, et avec quatre corps
+    il n'y en a pas.
 
-    LES CLONES NE SONT PAS DES UNITES. Chacun nait avec le corps, le metier et
-    un souvenir d'un mort de la Terre, et ce souvenir DONNE ses competences :
-    le soudeur est bon en mecanique, la maraichere en botanique. Fatigue, faim,
-    sante et moral multiplient ce qu'il vaut a son poste. Un clone epuise fait
-    tourner une salle au ralenti - la vie du bord se paie en production.
+    LE VAISSEAU RESPIRE, ET CA SE VOIT. Chaque fois qu'une salle produit, un
+    trait lumineux part d'elle, longe la coursive et va se jeter dans la jauge
+    concernee, en bas de l'ecran. Ce qui se consomme fait le trajet inverse, en
+    plus sombre. Des chiffres popent dans la salle au depart et sur la jauge a
+    l'arrivee - et en rouge quand une reserve pleine deborde, parce que remplir
+    une cuve pleine, c'est jeter ce qu'on vient de produire.
 
-    LA CUVE. 80 materiaux et 10 jours, un poste tenu et du courant, et un corps
-    neuf ouvre les yeux avec un souvenir tire au sort. C'est la seule facon
-    d'etre plus nombreux - et comme les materiaux ne viennent que du recyclage,
-    grandir veut dire fermer le cycle des dechets.
+    L'EQUIPAGE PARLE. Des bulles au-dessus des points : des banalites quand
+    tout va, de l'incomprehension envers "la machine" quand une salle est sale,
+    vide ou cassee - ils ne savent pas qu'un esprit humain les dirige - et de
+    l'admiration quand le bord est propre et les reserves pleines. Deux bulles
+    au maximum, et un bouton MICRO en haut a droite pour les couper.
 
-    DEUX FINS. Le premier relais atteint (cent pour cent de progression), ou
-    l'extinction quand plus personne ne respire.
-
-    L'ARCHITECTURE EST CELLE DE TUAZ : des <script src> classiques et non des
-    modules ES, donc une portee globale partagee et un jeu qui s'ouvre d'un
-    double-clic. Le rendu, lui, change : plus de canvas, le plan est du SVG et
-    les panneaux du DOM. Le texte reste net et les clics sont gratuits.
+    DEUX BUGS TROUVES EN CHEMIN, ET TOUS DEUX INVISIBLES. Le pilote du banc
+    appelait un ordre qui n'existait plus : il n'a ni repare ni nettoye pendant
+    plusieurs series de reglages, et j'ai equilibre le jeu sur un test faux.
+    Et la constante REPARE_MAT n'avait jamais ete ecrite dans 00-config.js : un
+    patch n'avait pas pris, silencieusement. Elle valait donc undefined, ce qui
+    mettait l'integrite de la salle ET la reserve de materiaux a NaN. La
+    fonction retire() refuse desormais toute valeur non finie et le dit dans le
+    journal. Depuis, le relais est atteint au jour 408 avec un pilote mediocre.
 
     ================================================================
     ETAT DES CHANTIERS
@@ -68,33 +71,33 @@
 
     CE QUI RESTE VRAIMENT A FAIRE
     1. JOUER CETTE TRANCHE ET LE DIRE. Est-ce tendu ? Est-ce lisible ? Y a-t-il
-       une decision interessante toutes les trente secondes ? Tant qu'on n'a pas
-       repondu a ca, on ne construit rien de plus.
-    2. Le reglage des chiffres : tout est dans js/00-config.js, une valeur par
-       ligne. La premiere partie dira ce qui est trop dur ou trop mou.
+       une decision interessante toutes les trente secondes ?
+    2. Le reglage des chiffres : tout est dans js/00-config.js. La v2 a ete
+       equilibree au banc, pas a la main : le ressenti reste a confirmer.
     3. Les trois questions de conception encore ouvertes : la desobeissance
        (un clone demoralise travaille-t-il mal, ou refuse-t-il ?), ce que veut
        dire gagner, et l'echelle du die and retry (sauvegarde ou arche neuve).
+    4. L'ordre ATTAQUER est en place mais toujours grise : il attend les
+       hostiles.
 
     CE QUI VIENDRA SE BRANCHER DESSUS, DANS L'ORDRE PROBABLE
     - Le sas et les sorties : epaves, planetes, points bleus et rouges.
-    - Les extraterrestres : abordage et vaisseau contre vaisseau.
+    - Les extraterrestres : abordage et vaisseau contre vaisseau. L'ordre
+      ATTAQUER et l'ordre DEFENDRE les attendent deja.
     - Le chantier : poser, demolir et agrandir la coque.
     - L'armurerie : vetements, armes, materiel de minage.
     - La carte des etoiles et le choix du cap.
     - La technologie extraterrestre a etudier.
 
-    LE BANC A TROUVE HUIT NAUFRAGES AVANT QUE LE JEU TIENNE. tools/banc.js joue
-    une partie entiere en accelere avec un pilote automatique, et sort un
-    tableau par vingt jours. Il a successivement montre : la salle de vie
-    coupee en premier (tout le monde mourait de faim avec 150 vivres en
-    reserve), l'epuisement simultane des quatre, le cycle de l'eau qui ne se
-    refermait pas, l'usure qui emportait les machines, et le recyclage jamais
-    tenu - donc plus de materiaux, donc plus de clones, donc un vaisseau fige
-    a cinq qui meurt lentement. La partie tient maintenant : relais atteint au
-    jour 1651 avec un pilote mediocre, et bien plus vite en jouant.
-
     LOG
+    v2 - on prend les gens a la main. Glisser-deposer d'un point sur une salle
+        avec menu d'ordres (travailler, nettoyer, reparer, defendre, attaquer),
+        postes vides cliquables depuis la fiche, ordres devenus par salle,
+        salete et auto-entretien des salles tenues, traits lumineux de
+        production vers les jauges, chiffres qui popent, debordement des
+        reserves pleines, bulles de l'equipage et bouton micro. Deux bugs
+        silencieux corriges : pilote du banc appelant un ordre disparu, et
+        REPARE_MAT jamais ecrite (NaN sur l'integrite et les materiaux).
     v1 - la premiere tranche jouable. Neuf salles, quatre clones, l'energie qui
         coupe par priorite, l'usure et l'entretien, le cycle eau-vivres-oxygene-
         dechets, les besoins des corps, la cuve de decantation, et les deux
@@ -127,6 +130,7 @@
                 <span class="spacer"></span>
                 <span class="scr-meta" id="dist">Relais 0 %</span>
                 <div id="distbar"><div id="distb"></div></div>
+                <span class="bt-mini on" id="micro">MICRO</span>
                 <div id="vit">
                     <span data-v="0">II</span>
                     <span data-v="1" class="on">&times;1</span>
@@ -163,6 +167,7 @@
 
         </div>
 
+        <div id="effets"></div>
         <div id="ecran"></div>
     </div>
 </div>
@@ -174,6 +179,7 @@
 <script src="js/04-sim.js"></script>
 <script src="js/05-plan.js"></script>
 <script src="js/06-panneaux.js"></script>
+<script src="js/08-effets.js"></script>
 <script src="js/07-boucle.js"></script>
 </body>
 </html>

@@ -25,15 +25,31 @@ function vivants() {
     return V.clones.filter(function (c) { return c.vivant; });
 }
 
-/* ---- COMBIEN DE POSTES SONT TENUS DANS CETTE SALLE ---- */
+/* ---- QUI TRAVAILLE DANS CETTE SALLE ----
+   Seuls les "travail" comptent pour la production : un nettoyeur ou un
+   reparateur est dans la salle sans en tenir un poste. */
 function affectesA(id) {
     return vivants().filter(function (c) {
-        return c.poste.type === "salle" && c.poste.id === id;
+        return c.poste.type === "travail" && c.poste.id === id;
+    });
+}
+
+/* Qui, dans cette salle, y fait tel ordre. */
+function aLaSalle(id, type) {
+    return vivants().filter(function (c) {
+        return c.poste.type === type && c.poste.id === id;
     });
 }
 
 function auPoste(type) {
     return vivants().filter(function (c) { return c.poste.type === type; });
+}
+
+/* Ceux qu'on peut donner a une salle : tout ce qui ne travaille pas deja. */
+function disponibles() {
+    return vivants().filter(function (c) {
+        return c.poste.type === "libre" || c.poste.type === "repos";
+    });
 }
 
 /* ================= NOUVELLE PARTIE ================= */
@@ -62,6 +78,13 @@ function nouvellePartie(graine) {
         decantation: null,   /* { reste: jours } quand une cuve tourne */
 
         journal: [],
+        bulles: [],          /* les repliques affichees au-dessus des points */
+        micro: true,         /* on entend l'equipage, ou non */
+        tBulle: 0,
+        /* le grand livre du pas : qui a produit ou consomme quoi. L'ecran le
+           vide a chaque image pour lancer les traits lumineux et les chiffres. */
+        flux: {},
+        perte: {},           /* ce qui deborde d'une reserve pleine */
         selection: null,     /* { type:"salle"|"clone", id } */
         fin: null,           /* "relais" | "extinction" */
         alertes: {}
@@ -77,6 +100,7 @@ function nouvellePartie(graine) {
             role: def.role, icone: def.icone, verrouille: !!def.verrouille,
             passive: !!def.passive,
             integrite: def.verrouille ? 100 : rndInt(82, 100),
+            salete: 0,         /* 0 a 100 : une salle sale rend moins */
             active: false,     /* alimentee et en marche, calcule a chaque pas */
             rendement: 0,      /* entre 0 et postes */
             coupee: false      /* eteinte faute d'energie */
@@ -95,15 +119,16 @@ function nouvellePartie(graine) {
     /* Un depart viable, mais deja tendu : le courant suffit tout juste a la
        ferme, au controle et a la salle de vie. L'eau, elle, baisse - il
        faudra bien mettre quelqu'un au recyclage, donc le retirer d'ailleurs. */
-    V.clones[0].poste = { type: "salle", id: "machines" };   /* le soudeur */
-    V.clones[2].poste = { type: "salle", id: "machines" };   /* le chimiste */
-    V.clones[1].poste = { type: "salle", id: "ferme" };      /* la maraichere */
-    V.clones[3].poste = { type: "salle", id: "controle" };   /* l'officier */
+    V.clones[0].poste = { type: "travail", id: "machines" };   /* le soudeur */
+    V.clones[2].poste = { type: "travail", id: "machines" };   /* le chimiste */
+    V.clones[1].poste = { type: "travail", id: "ferme" };      /* la maraichere */
+    V.clones[3].poste = { type: "travail", id: "controle" };   /* l'officier */
 
     for (i = 0; i < V.clones.length; i++) placerAuPoste(V.clones[i], true);
 
     etat = "jeu";
     V.selection = { type: "salle", id: "machines" };
+    V.flux = {}; V.perte = {};
 
     logMsg("L'arche Nadir sort de l'ombre de la Terre. Quatre corps decantes, "
          + "neuf salles, et personne pour les commander sinon vous.", "cap");

@@ -45,9 +45,9 @@ function ligne(k, v, ton) {
 }
 
 /* ---- UNE JAUGE SEGMENTEE ---- */
-function jauge(nom, val, max, ton) {
+function jauge(nom, val, max, ton, cle) {
     var p = clamp(val / max * 100, 0, 100);
-    return '<div class="g ' + (ton || "") + '">'
+    return '<div class="g ' + (ton || "") + '" data-res="' + (cle || "") + '">'
          + '<div class="glab"><span>' + nom + "</span><b>" + Math.round(val) + "</b></div>"
          + '<div class="bar"><i style="width:' + p.toFixed(1) + '%"></i></div></div>';
 }
@@ -77,12 +77,12 @@ function majJauges() {
         return p < 0.12 ? "crit" : (p < 0.3 ? "low" : "");
     }
     $("#jauges").innerHTML =
-        jauge("Eau", r.eau, c.eau, ton(r.eau, c.eau)) +
-        jauge("Oxygene", r.oxy, c.oxy, ton(r.oxy, c.oxy)) +
-        jauge("Vivres", r.vivres, c.vivres, ton(r.vivres, c.vivres)) +
-        jauge("Materiaux", r.mat, c.mat, ton(r.mat, c.mat)) +
+        jauge("Eau", r.eau, c.eau, ton(r.eau, c.eau), "eau") +
+        jauge("Oxygene", r.oxy, c.oxy, ton(r.oxy, c.oxy), "oxy") +
+        jauge("Vivres", r.vivres, c.vivres, ton(r.vivres, c.vivres), "vivres") +
+        jauge("Materiaux", r.mat, c.mat, ton(r.mat, c.mat), "mat") +
         jauge("Dechets", r.dechets, c.dechets,
-              (r.dechets / c.dechets) > CFG.DECHETS_SEUIL ? "crit" : "");
+              (r.dechets / c.dechets) > CFG.DECHETS_SEUIL ? "crit" : "", "dechets");
 }
 
 /* ================= LA CARTE DE DROITE ================= */
@@ -113,6 +113,8 @@ function carteSalle(hote, s) {
     h += ligne("Etat", mot, ton);
     h += ligne("Integrite", pc(s.integrite),
                s.integrite < CFG.PANNE ? "bad" : (s.integrite < 40 ? "warn" : ""));
+    h += ligne("Proprete", pc(100 - s.salete),
+               s.salete > 70 ? "bad" : (s.salete > 30 ? "warn" : ""));
     if (s.en > 0) h += ligne("Energie", nb(s.en) + " /j");
     if (s.postes > 0) {
         h += ligne("Postes", affectesA(s.id).length + " / " + s.postes,
@@ -122,21 +124,43 @@ function carteSalle(hote, s) {
     h += ligneProduction(s);
     h += "</div>";
 
-    /* les postes, nommes, avec de quoi liberer d'un clic */
+    /* LES POSTES, NOMMES. Un poste vide se remplit d'un clic ; un poste
+       tenu se libere d'un clic. On peut aussi glisser un point du plan. */
+    var i, j, eq, autres, ordreK;
     if (s.postes > 0) {
-        var eq = affectesA(s.id), i;
-        h += '<div class="card-bd" style="border-top:1px solid var(--line);">';
+        eq = affectesA(s.id);
+        h += '<div class="card-bd" style="border-top:1px solid var(--line);">'
+           + '<div class="k" style="margin-bottom:4px;">Postes de travail</div>';
         for (i = 0; i < s.postes; i++) {
             if (eq[i]) {
                 h += '<div class="poste" data-lib="' + eq[i].id + '">'
                    + '<span class="pn">' + eq[i].nomComplet + "</span>"
                    + '<span class="px">retirer</span></div>';
             } else {
-                h += '<div class="poste vide"><span class="pn">Poste vide</span>'
-                   + '<span class="px">&mdash;</span></div>';
+                h += '<div class="poste vide" data-vide="' + s.id + '">'
+                   + '<span class="pn">Poste vide</span>'
+                   + '<span class="px">affecter</span></div>';
             }
         }
         h += "</div>";
+    }
+
+    /* ceux qui sont dans la salle sans y tenir de poste */
+    autres = "";
+    for (j = 0; j < ORDRES.length; j++) {
+        ordreK = ORDRES[j].k;
+        if (ordreK === "travail") continue;
+        eq = aLaSalle(s.id, ordreK);
+        for (i = 0; i < eq.length; i++) {
+            autres += '<div class="poste" data-lib="' + eq[i].id + '">'
+                    + '<span class="pn">' + eq[i].nomComplet + "</span>"
+                    + '<span class="px">' + ORDRES[j].n.split(" ")[0].toLowerCase() + "</span></div>";
+        }
+    }
+    if (autres) {
+        h += '<div class="card-bd" style="border-top:1px solid var(--line);">'
+           + '<div class="k" style="margin-bottom:4px;">Aussi dans la salle</div>'
+           + autres + "</div>";
     }
 
     if (s.id === "naissance") {
@@ -163,12 +187,58 @@ function carteSalle(hote, s) {
             affecter(el.dataset.lib, "libre", null);
         });
     });
+    $$("#carte .poste[data-vide]").forEach(function (el) {
+        el.addEventListener("click", function (ev) {
+            ouvrirChoixClone(el.dataset.vide, ev.clientX, ev.clientY);
+        });
+    });
     var b = $("#bcuve");
     if (b) b.addEventListener("click", function () {
         var err = lancerDecantation();
         if (err) logMsg(err, "mal");
         rafraichir();
     });
+}
+
+/* ================= QUI METTRE A CE POSTE ? =================
+   Le menu montre ce que chacun vaut DANS CETTE SALLE : c'est la seule
+   information qui compte au moment de choisir. */
+function ouvrirChoixClone(salleId, ecx, ecy) {
+    fermerMenu();
+    var s = salleParId(salleId);
+    if (!s) return;
+    var libres = disponibles();
+    libres.sort(function (a, b) {
+        return rendementClone(b, s.comp) - rendementClone(a, s.comp);
+    });
+
+    var m = bal("div", "ordmenu");
+    var h = '<div class="ordhd">Poste vide<span>' + s.nom + "</span></div>";
+    if (!libres.length) {
+        h += '<div class="ord no"><span class="on">Personne de libre</span>'
+           + '<span class="od">Retirez quelqu\'un d\'une autre salle.</span></div>';
+    }
+    var i, c;
+    for (i = 0; i < libres.length; i++) {
+        c = libres[i];
+        h += '<div class="ord" data-c="' + c.id + '">'
+           + '<span class="on">' + c.nomComplet + "</span>"
+           + '<span class="od">' + (s.comp ? nomComp(s.comp) + " " + c.comp[s.comp] : "polyvalent")
+           + " &middot; rendement " + Math.round(rendementClone(c, s.comp) * 100) + " %</span></div>";
+    }
+    m.innerHTML = h;
+    document.body.appendChild(m);
+    var r = m.getBoundingClientRect();
+    m.style.left = Math.max(8, Math.min(ecx + 8, window.innerWidth - r.width - 10)) + "px";
+    m.style.top = Math.max(8, Math.min(ecy + 8, window.innerHeight - r.height - 10)) + "px";
+
+    $$(".ordmenu .ord[data-c]").forEach(function (el) {
+        el.addEventListener("click", function () {
+            affecter(el.dataset.c, "travail", salleId);
+            fermerMenu();
+        });
+    });
+    menuOuvert = m;
 }
 
 function ligneProduction(s) {
@@ -229,36 +299,25 @@ function carteClone(hote, c) {
     }
     h += "</div>";
 
-    /* ---- L'AFFECTATION ---- */
+    /* ---- L'AFFECTATION ----
+       Le gros des ordres se donne EN GLISSANT le point sur une salle. Ici on
+       garde les deux qui ne visent aucune salle, et de quoi le renvoyer. */
     h += '<div class="card-bd" style="border-top:1px solid var(--line);">'
-       + '<div class="k" style="margin-bottom:4px;">Mettre a</div>';
-    for (i = 0; i < V.salles.length; i++) {
-        var s = V.salles[i];
-        if (s.verrouille || s.postes === 0) continue;
-        var pris = affectesA(s.id).length;
-        var ici = (c.poste.type === "salle" && c.poste.id === s.id);
-        var plein = pris >= s.postes && !ici;
-        h += '<div class="poste choix' + (ici ? " ici" : "") + (plein ? " plein" : "") + '"'
-           + (plein ? "" : ' data-salle="' + s.id + '"') + ">"
-           + '<span class="pn">' + s.nom + "</span>"
-           + '<span class="px">' + (ici ? "en poste" : pris + "/" + s.postes) + "</span></div>";
-    }
+       + '<div class="k" style="margin-bottom:4px;">Ordre</div>';
     for (i = 0; i < POSTES_LIBRES.length; i++) {
         var p = POSTES_LIBRES[i];
         var la = (c.poste.type === p.k);
         h += '<div class="poste choix' + (la ? " ici" : "") + '" data-type="' + p.k + '">'
            + '<span class="pn">' + p.n + "</span>"
-           + '<span class="px">' + (la ? "en poste" : "&rarr;") + "</span></div>";
+           + '<span class="px">' + (la ? "en cours" : "&rarr;") + "</span></div>";
     }
-    h += "</div>";
+    h += '<div class="astuce">Glissez son point sur une salle du plan pour lui '
+       + "dire quoi y faire.</div></div>";
 
     h += '<div class="card-ft">Se souvient de ' + c.souvenir + ".</div></div>";
 
     hote.innerHTML = h;
 
-    $$("#carte .poste[data-salle]").forEach(function (el) {
-        el.addEventListener("click", function () { affecter(c.id, "salle", el.dataset.salle); });
-    });
     $$("#carte .poste[data-type]").forEach(function (el) {
         el.addEventListener("click", function () { affecter(c.id, el.dataset.type, null); });
     });
